@@ -1,0 +1,12 @@
+﻿# For local HTTP testing, you can comment the domain and use :80
+# Replace example.com with your domain when ready to deploy
+example.com {
+    encode gzip
+    reverse_proxy app:3000
+}
+
+# Optional for local testing without domain:
+:80 {
+    encode gzip
+    reverse_proxy app:3000
+}

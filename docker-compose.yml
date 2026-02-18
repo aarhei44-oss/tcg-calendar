@@ -1,0 +1,38 @@
+﻿name: tcg-release-calendar
+  
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: tcg-app
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    volumes:
+      - app_data:/app/data
+    restart: unless-stopped
+    # You can keep depends_on if you want Caddy to start first, but it's optional for local
+    # depends_on:
+    #   - caddy
+
+  caddy:
+    image: caddy:2.7-alpine
+    container_name: tcg-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  app_data:
+  caddy_data:
+  caddy_config:
+

@@ -1,0 +1,27 @@
+﻿# Multi-stage Dockerfile for Next.js (Node 20)
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package.json pnpm-lock.yaml* ./
+RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN pnpm install --frozen-lockfile
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN corepack enable && corepack prepare pnpm@latest --activate
+# generate Prisma client if applicable; safe to keep even before schema
+RUN if [ -f prisma/schema.prisma ]; then pnpm prisma generate; fi
+RUN pnpm build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+# Create data dir for SQLite
+RUN mkdir -p /app/data
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY package.json ./
+COPY --from=builder /app/node_modules ./node_modules
+EXPOSE 3000
+CMD ["node", ".next/standalone/server.js"]

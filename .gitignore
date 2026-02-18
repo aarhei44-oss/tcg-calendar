@@ -1,0 +1,21 @@
+﻿# Dependencies / builds
+node_modules
+.next
+out
+dist
+
+# Local data
+data/
+
+# Env files (keep secrets out of Git)
+.env
+.env.*
+!.env.example
+
+# Docker noise
+*.log
+docker-compose.override.yml
+
+# OS/Editor
+.DS_Store
+.vscode

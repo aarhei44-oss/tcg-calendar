@@ -1,0 +1,16 @@
+﻿# Exclude local artifacts so COPY . . won't overwrite container-installed deps
+node_modules
+.next
+out
+dist
+# VCS
+.git
+.gitignore
+# Logs
+*.log
+# Env files (you supply them via env_file in compose)
+.env
+.env.*
+# Editor/OS
+.vscode
+.DS_Store
