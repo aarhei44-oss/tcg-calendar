@@ -1,0 +1,259 @@
+
+// /app/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+//////////////////////
+// enums
+//////////////////////
+
+enum ReleaseEventType {
+  shelf
+  prerelease
+  promo
+  special
+}
+
+enum DateType {
+  EXACT
+  RANGE
+  WINDOW
+  TBD
+}
+
+enum WindowGranularity {
+  MONTH
+  QUARTER
+  HALF
+  YEAR
+}
+
+enum Region {
+  US
+}
+
+enum ReleaseStatus {
+  announced
+  confirmed
+  delayed
+  canceled
+  rumor
+}
+
+enum SourceTier {
+  official
+  distributor
+  retailer
+  aggregator
+}
+
+enum SourceDisposition {
+  used
+  ignored
+  conflict
+}
+
+enum ScanScopeType {
+  all
+  tcg
+}
+
+enum ScanStatus {
+  queued
+  running
+  succeeded
+  failed
+  timed_out
+}
+
+enum ScanTrigger {
+  scheduled
+  manual
+}
+
+enum UserRole {
+  admin
+}
+
+//////////////////////
+// models
+//////////////////////
+
+model TcgProfilePackage {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  version         String
+  description     String?  @db.Text
+  discoveryConfig Json
+  sourceConfigs   Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  installs TcgProfileInstall[]
+}
+
+model TcgProfileInstall {
+  id               String   @id @default(cuid())
+  packageId        String
+  installedVersion String
+  enabled          Boolean  @default(false)
+  settings         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  package    TcgProfilePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  productSets ProductSet[]
+  discoveryHits DiscoveryHit[]
+  scanRuns    ScanRun[] // through optional scopeId
+}
+
+model ProductSet {
+  id                   String   @id @default(cuid())
+  tcgProfileInstallId  String
+  code                 String?
+  name                 String?
+  releaseQuarter       String? // optional metadata, e.g., "2026Q2"
+  meta                 Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  install      TcgProfileInstall @relation(fields: [tcgProfileInstallId], references: [id], onDelete: Cascade)
+  releaseEvents ReleaseEvent[]
+}
+
+model ReleaseEvent {
+  id             String            @id @default(cuid())
+  productSetId   String
+  type           ReleaseEventType
+  dateType       DateType
+  // EXACT
+  dateExact      DateTime?
+  // RANGE
+  dateStart      DateTime?
+  dateEnd        DateTime?
+  // WINDOW
+  windowGranularity WindowGranularity?
+  windowStart    DateTime?
+  windowEnd      DateTime?
+  // TBD: no dates
+  region         Region            @default(US)
+  status         ReleaseStatus
+  confidence     Int               // 0–100
+  sourceSummary  String?           @db.Text
+  lastSeenAt     DateTime?
+  isManualOverride Boolean         @default(false)
+  manualNotes    String?           @db.Text
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  productSet  ProductSet   @relation(fields: [productSetId], references: [id], onDelete: Cascade)
+  sourceClaims SourceClaim[]
+  userNotes    UserNote[]
+
+  @@index([productSetId, type])
+  @@index([dateType, dateExact, dateStart])
+}
+
+model SourceClaim {
+  id              String           @id @default(cuid())
+  releaseEventId  String
+  tier            SourceTier
+  disposition     SourceDisposition
+  confidenceWeight Float
+  url             String
+  host            String?
+  // Parsed date fields mirroring ReleaseEvent
+  dateType        DateType?
+  dateExact       DateTime?
+  dateStart       DateTime?
+  dateEnd         DateTime?
+  windowGranularity WindowGranularity?
+  windowStart     DateTime?
+  windowEnd       DateTime?
+
+  lastVerifiedAt  DateTime?
+  raw             Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
+
+  @@index([releaseEventId, lastVerifiedAt])
+}
+
+model ScanRun {
+  id         String        @id @default(cuid())
+  scopeType  ScanScopeType
+  scopeId    String?       // when scopeType == tcg → references TcgProfileInstall.id
+  status     ScanStatus
+  totals     Json?
+  trigger    ScanTrigger
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  // Optional relation to TcgProfileInstall
+  scopeInstall TcgProfileInstall? @relation(fields: [scopeId], references: [id], onDelete: SetNull)
+}
+
+model DiscoveryHit {
+  id                  String   @id @default(cuid())
+  tcgProfileInstallId String
+  url                 String
+  title               String?
+  raw                 Json?
+  seenAt              DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  install TcgProfileInstall @relation(fields: [tcgProfileInstallId], references: [id], onDelete: Cascade)
+
+  @@unique([tcgProfileInstallId, url])
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  role        UserRole @default(admin)
+  preferences Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  notes UserNote[]
+}
+
+model UserNote {
+  id             String       @id @default(cuid())
+  userId         String
+  releaseEventId String
+  content        String       @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
+
+  @@index([userId, releaseEventId])
+}
+
+model JobLock {
+  id        String   @id @default(cuid())
+  jobName   String
+  scopeKey  String
+  ownerId   String?   // e.g., hostname:pid or worker id
+  acquiredAt DateTime @default(now())
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([jobName, scopeKey])
+}
