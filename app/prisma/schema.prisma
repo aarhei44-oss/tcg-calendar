@@ -7,6 +7,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+
 }
 
 //////////////////////
@@ -90,7 +91,7 @@ model TcgProfilePackage {
   slug            String   @unique
   name            String
   version         String
-  description     String?  @db.Text
+  description     String?  
   discoveryConfig Json
   sourceConfigs   Json
   createdAt       DateTime @default(now())
@@ -146,10 +147,10 @@ model ReleaseEvent {
   region         Region            @default(US)
   status         ReleaseStatus
   confidence     Int               // 0–100
-  sourceSummary  String?           @db.Text
+  sourceSummary  String?           
   lastSeenAt     DateTime?
   isManualOverride Boolean         @default(false)
-  manualNotes    String?           @db.Text
+  manualNotes    String?           
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -235,7 +236,7 @@ model UserNote {
   id             String       @id @default(cuid())
   userId         String
   releaseEventId String
-  content        String       @db.Text
+  content        String      
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

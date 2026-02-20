@@ -18,8 +18,9 @@
         "name": "next"
       }
     ],
-    "paths": {
-      "@/*": ["./src/*"]
+
+    "baseUrl": ".",
+    "paths": { "@/*": ["./app/*"] 
     }
   },
   "include": [
@@ -29,6 +30,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "app/lib/migrateOnBoot.ts.old"  ],
   "exclude": ["node_modules"]
 }
