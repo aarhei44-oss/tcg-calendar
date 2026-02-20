@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.0",
-    "@prisma/client": "^7.4.1",
+    "@prisma/client": "^7.4.0",
     "better-sqlite3": "^12.6.2",
     "next": "16.1.6",
     "react": "19.2.3",
@@ -30,7 +30,7 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^4.1.1",
     "eslint-config-next": "^0.2.4",
-    "prisma": "^6.19.2",
+    "prisma": "^7.4.0",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"

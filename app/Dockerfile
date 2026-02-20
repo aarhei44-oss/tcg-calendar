@@ -1,38 +1,84 @@
-# Single-install pattern for reliability (Next.js + pnpm)
-FROM node:20-bullseye AS builder
+
+# syntax=docker/dockerfile:1.7
+
+############################################
+# Stage 1: deps (install dev deps for build)
+############################################
+FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 
-# Copy manifests first to leverage build cache
-COPY package.json ./
-COPY pnpm-lock.yaml ./
+ENV CI=1
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install pnpm and all deps (including dev deps needed for build)
-RUN npm install -g pnpm@9
-RUN pnpm install --frozen-lockfile
+COPY package*.json ./
+RUN npm ci
 
-# Now copy the rest of the source
+############################################
+# Stage 2: build (Next.js production build)
+############################################
+FROM node:20-bookworm-slim AS build
+WORKDIR /app
+
+ENV CI=1
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=deps /app/node_modules /app/node_modules
 COPY . .
 
-# Optional: Prisma generate if you add Prisma later
-RUN if [ -f prisma/schema.prisma ]; then npx prisma generate; fi
+# Ensure dotenv-aware code looks at /app/app.env (if used),
+# but Prisma must have DATABASE_URL *at build time*:
+ENV DOTENV_CONFIG_PATH=app.env
+ENV DATABASE_URL=file:./data/app.db
 
-# Build the Next.js app
-RUN pnpm build
+# Prisma Client for the build (no DB connection needed)
+RUN npm run prisma:generate
+
+# Build Next.js
+RUN npm run build
 
 
-# Runtime image
-FROM node:20-bullseye AS runner
+############################################
+# Stage 3: runner (production)
+############################################
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
+
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+# Use container-correct SQLite path at runtime
+ENV DATABASE_URL=file:./data/app.db
 
-# Writable directory for SQLite/data
+# OS deps for Prisma at runtime (silence libssl warnings)
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+
+# Install runtime deps (keep dev so prisma CLI & tsx can run in entrypoint)
+COPY --from=build /app/package*.json /app/
+RUN npm ci
+
+# --- Fallback: ensure Prisma 7 in the runner as well (lockfile may pin 6.x) ---
+# You can remove this block once your lockfile is updated to Prisma 7 in the repo.
+RUN node -e "try{const v=require('./node_modules/prisma/package.json').version; if(!/^7\\./.test(v)) process.exit(1)}catch(e){process.exit(1)}" || \
+    (echo 'Forcing Prisma 7.4.0 for runtime (lockfile has 6.x)' && \
+     npm i -D prisma@7.4.0 && npm i @prisma/client@7.4.0)
+
+# Copy build output and sources needed at runtime
+COPY --from=build /app/.next /app/.next
+COPY --from=build /app/public /app/public
+COPY --from=build /app/app /app/app
+COPY --from=build /app/prisma /app/prisma
+COPY --from=build /app/prisma.config.ts /app/prisma.config.ts
+COPY --from=build /app/entrypoint.sh /app/entrypoint.sh
+
+# Persist SQLite at /app/data
 RUN mkdir -p /app/data
+VOLUME ["/app/data"]
 
-# Copy runtime artifacts from builder
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/node_modules ./node_modules
+# Normalize entrypoint (strip BOM/CRLF) and run via sh
+RUN set -eu; \
+    BOM=$(printf '\357\273\277'); \
+    sed -i "1s/^$BOM//" /app/entrypoint.sh; \
+    sed -i 's/\r$//' /app/entrypoint.sh; \
+    chmod +x /app/entrypoint.sh
 
 EXPOSE 3000
-CMD ["npm", "run", "start", "--", "-p", "3000"]
+ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]

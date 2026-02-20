@@ -1,16 +1,24 @@
-﻿# Exclude local artifacts so COPY . . won't overwrite container-installed deps
+﻿
+# Node/Next artifacts
 node_modules
 .next
-out
+coverage
 dist
-# VCS
+out
+
+# Local SQLite data (mounted as volume in container)
+data
+
+# VCS and meta
 .git
 .gitignore
+Dockerfile
+docker-compose.yml
+README.md
+
 # Logs
 *.log
-# Env files (you supply them via env_file in compose)
-.env
-.env.*
+
 # Editor/OS
 .vscode
 .DS_Store
