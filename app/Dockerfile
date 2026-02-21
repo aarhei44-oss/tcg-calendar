@@ -46,10 +46,15 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 # Use container-correct SQLite path at runtime
-ENV DATABASE_URL=file:./data/app.db
+ENV DATABASE_URL=file:../data/app.db
 
-# OS deps for Prisma at runtime (silence libssl warnings)
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+# --- Seed-on-boot defaults (can override at docker run) ---
+ENV SEED_ON_BOOT=true
+ENV SEED_INSTALLS=default
+ENV SEED_OPTIONS='{"seed":true}'
+
+# OS deps for Prisma at runtime (silence libssl warnings) + curl for seed HTTP call
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl curl && rm -rf /var/lib/apt/lists/*
 
 # Install runtime deps (keep dev so prisma CLI & tsx can run in entrypoint)
 COPY --from=build /app/package*.json /app/
