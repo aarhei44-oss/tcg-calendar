@@ -1,7 +1,6 @@
 // /app/app/calendar/page.tsx
 import SiteShell from "../components/SiteShell";
-import { cookies } from "next/headers";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import {
   listEventsByDateRangeAndFilters,
@@ -14,6 +13,11 @@ import { redirect } from "next/navigation";
 import { addEventComment, setUserSubscription } from "../data/prismaRepo";
 import FilterBar from "./FilterBar";
 import { TypeBadge, StatusBadge } from "app/ui/Badges";
+import Tabs from "./Tabs";
+import MonthSwitcher from "./MonthSwitcher";
+
+const cookieStore = await cookies();
+const signedIn = !!cookieStore.get("userId")?.value;
 
 export async function subscribeAction(formData: FormData) {
   "use server";
@@ -164,37 +168,66 @@ export default async function CalendarPage({
     currentMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
-  // Month range: from 1st 00:00:00.000 to last day 23:59:59.999
-  const startOfMonth = new Date(
-    currentMonthDate.getFullYear(),
-    currentMonthDate.getMonth(),
-    1,
-    0,
-    0,
-    0,
-    0,
-  );
-  const endOfMonth = new Date(
-    currentMonthDate.getFullYear(),
-    currentMonthDate.getMonth() + 1,
-    0,
-    23,
-    59,
-    59,
-    999,
-  );
+  // Parse month helpers
+  function parseYM(ym?: string | string[] | undefined): Date {
+    const raw = firstStr(ym);
+    if (raw && /^\d{4}-\d{2}$/.test(raw)) {
+      const [y, m] = raw.split("-").map((n) => parseInt(n, 10));
+      return new Date(y, m - 1, 1);
+    }
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  function monthRange(d: Date) {
+    const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+    return { start, end };
+  }
 
-  const range = { start: startOfMonth, end: endOfMonth };
+  // Calendar tab month (param: ym - already used by RBC)
+  const calMonth = parseYM(sp.ym);
+  const rangeCalendar = monthRange(calMonth);
 
+  // Events List tab month (param: ymList)
+  const listMonth = parseYM(sp.ymList);
+  const rangeList = monthRange(listMonth);
+
+  // Upcoming tab month scope (param: ymUpcoming)
+  const upMonth = parseYM(sp.ymUpcoming);
+  const rangeUpcoming = monthRange(upMonth);
   const filters = { installIds, types, status, search };
 
-  const [inRange, upcomingUndef] = await Promise.all([
-    listEventsByDateRangeAndFilters(range, filters),
-    listUpcomingUndefined({ installIds }),
+  const [inRangeCalendar, inRangeList, upcomingUndef] = await Promise.all([
+    listEventsByDateRangeAndFilters(rangeCalendar, filters),
+    listEventsByDateRangeAndFilters(rangeList, filters),
+    listUpcomingUndefined({ installIds }), // TBD + future WINDOW (existing repo call)
   ]);
+  function fmtDate(d?: string | Date | null): string {
+    if (!d) return "";
+    const iso = typeof d === "string" ? d : d.toISOString();
+    return new Date(iso).toISOString().slice(0, 10);
+  }
 
-  const store = await cookies();
-  const userId = store.get("userId")?.value ?? null;
+  // Keep TBD always; for WINDOW, only those intersecting rangeUpcoming
+  const upcomingForTab = upcomingUndef.filter((ev: any) => {
+    if (ev.dateType === "TBD") return true;
+    if (ev.dateType === "WINDOW") {
+      const ws = ev.windowStart ? new Date(ev.windowStart) : null;
+      const we = ev.windowEnd ? new Date(ev.windowEnd) : null;
+      if (!ws || !we) return false;
+      // intersect with selected month range
+      return !(we < rangeUpcoming.start || ws > rangeUpcoming.end);
+    }
+    return false;
+  });
+  // Determine active tab once
+  const activeTab = (firstStr(sp.tab) ?? "calendar") as
+    | "calendar"
+    | "list"
+    | "upcoming";
+  const cookieStore = await cookies();
+  const signedIn = !!cookieStore.get("userId")?.value;
+  const userId = cookieStore.get("userId")?.value ?? null;
 
   return (
     <SiteShell current="calendar" title="Release Calendar">
@@ -252,150 +285,188 @@ export default async function CalendarPage({
         </div>
       </div>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Calendar — Selected Month</h2>
-        <ClientCalendar
-          events={mapReleaseEventsToCalendar(inRange)}
-          defaultDate={currentMonthDate}
-        />
-        <p className="text-xs text-gray-500">
-          Navigate months in the calendar header — this page will reload the
-          selected month.
-        </p>
-      </section>
-
-      <h2 className="text-lg font-semibold">Selected Month</h2>
-      <p className="text-sm text-gray-500">
-        Events intersecting the selected month (EXACT / RANGE / WINDOW)
-      </p>
-
-      <div className="text-xs text-gray-600 flex flex-wrap gap-4 px-1">
-        <span>
-          <span className="inline-block w-2 h-2 bg-gray-800 rounded-sm mr-2"></span>
-          EXACT (single day)
-        </span>
-        <span>
-          <span className="inline-block w-2 h-2 bg-gray-400 rounded-sm mr-2"></span>
-          RANGE (multi‑day)
-        </span>
-        <span>
-          <span className="inline-block w-2 h-2 bg-gray-300 rounded-sm mr-2"></span>
-          WINDOW (multi‑day)
-        </span>
-        <span className="text-gray-400">
-          TBD is listed in “Upcoming — Undefined”
-        </span>
+      {/* Tabs row */}
+      <div className="flex items-center justify-between">
+        <Tabs />
+        {/* Per-tab month switchers (Calendar uses its own RBC toolbar; we provide for List/Upcoming) */}
+        <div className="flex items-center gap-4">
+          {/* Only show the relevant month switcher based on tab via CSS; it's ok to show both too */}
+          {/* Events List month */}
+        </div>
       </div>
-      <section className="rounded-card border shadow-card bg-white p-4">
-        <div className="mt-3 overflow-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left border-b">
-                <th className="py-2 pr-4">Product Set</th>
-                <th className="py-2 pr-4">Type</th>
-                <th className="py-2 pr-4">Date Type</th>
-                <th className="py-2 pr-4">Exact</th>
-                <th className="py-2 pr-4">Range</th>
-                <th className="py-2 pr-4">Window</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Sources</th>
-                <th className="py-2 pr-4">Comments</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inRange.map((ev: any) => (
-                <tr key={ev.id} className="border-b last:border-0 align-top">
-                  <td className="py-2 pr-4">
-                    {ev.productSet?.name ?? "(set)"}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <StatusBadge variant={ev.status} />
-                  </td>
-                  <td className="py-2 pr-4">
-                    <TypeBadge variant={ev.type} />
-                  </td>
-                  <td className="py-2 pr-4">{fmtDate(ev.dateExact)}</td>
-                  <td className="py-2 pr-4">
-                    {fmtDate(ev.dateStart)}{" "}
-                    {ev.dateStart || ev.dateEnd ? "—" : ""}{" "}
-                    {fmtDate(ev.dateEnd)}
-                  </td>
-                  <td className="py-2 pr-4">
-                    {fmtDate(ev.windowStart)}{" "}
-                    {ev.windowStart || ev.windowEnd ? "—" : ""}{" "}
-                    {fmtDate(ev.windowEnd)}
-                  </td>
-                  <td className="py-2 pr-4">{ev.status}</td>
-                  <td className="py-2 pr-4">{ev.sourceClaims?.length ?? 0}</td>
-                  <td className="py-2 pr-4">
-                    <EventComments eventId={ev.id} signedIn={!!userId} />
-                  </td>
-                </tr>
-              ))}
-              {inRange.length === 0 && (
-                <tr>
-                  <td className="py-3 text-gray-500" colSpan={9}>
-                    No events found for the given filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
 
-      <section className="rounded-card border shadow-card bg-white p-4">
-        <h2 className="text-lg font-semibold">
-          Upcoming — Undefined (TBD / future WINDOW)
-        </h2>
-        <div className="mt-3 overflow-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left border-b">
-                <th className="py-2 pr-4">Product Set</th>
-                <th className="py-2 pr-4">Type</th>
-                <th className="py-2 pr-4">Date Type</th>
-                <th className="py-2 pr-4">Window</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Sources</th>
-                <th className="py-2 pr-4">Comments</th>
-              </tr>
-            </thead>
-            <tbody>
-              {upcomingUndef.map((ev: any) => (
-                <tr key={ev.id} className="border-b last:border-0 align-top">
-                  <td className="py-2 pr-4">
-                    {ev.productSet?.name ?? "(set)"}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <TypeBadge variant={ev.type} />
-                  </td>
-                  <td className="py-2 pr-4">{ev.dateType}</td>
-                  <td className="py-2 pr-4">
-                    {fmtDate(ev.windowStart)}{" "}
-                    {ev.windowStart || ev.windowEnd ? "—" : ""}{" "}
-                    {fmtDate(ev.windowEnd)}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <StatusBadge variant={ev.status} />
-                  </td>
-                  <td className="py-2 pr-4">{ev.sourceClaims?.length ?? 0}</td>
-                  <td className="py-2 pr-4">
-                    <EventComments eventId={ev.id} signedIn={!!userId} />
-                  </td>
+      {/* Tab: Calendar */}
+      {activeTab === "calendar" && (
+        <section className="space-y-2">
+          <h2 className="text-lg font-semibold">
+            Calendar —{" "}
+            {calMonth.toLocaleString(undefined, {
+              month: "long",
+              year: "numeric",
+            })}
+          </h2>
+          <ClientCalendar
+            events={mapReleaseEventsToCalendar(inRangeCalendar)}
+            defaultDate={calMonth}
+          />
+          <div className="text-xs text-gray-600 flex flex-wrap gap-4 px-1">
+            <span>
+              <span className="inline-block w-2 h-2 bg-gray-800 rounded-sm mr-2"></span>
+              EXACT (single day)
+            </span>
+            <span>
+              <span className="inline-block w-2 h-2 bg-gray-400 rounded-sm mr-2"></span>
+              RANGE (multi‑day)
+            </span>
+            <span>
+              <span className="inline-block w-2 h-2 bg-gray-300 rounded-sm mr-2"></span>
+              WINDOW (multi‑day)
+            </span>
+            <span className="text-gray-400">TBD is in “Upcoming” tab</span>
+          </div>
+        </section>
+      )}
+
+      {/* Tab: Events List (Selected Month) */}
+
+      {activeTab === "list" && (
+        <section className="rounded-card border shadow-card bg-white p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold">
+              Events List —{" "}
+              <MonthSwitcher
+                param="ymList"
+                value={firstStr(sp.ymList) ?? undefined}
+              />
+            </h2>
+          </div>
+          <div className="mt-3 overflow-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left border-b">
+                  <th className="py-2 pr-4">Product Set</th>
+                  <th className="py-2 pr-4">Type</th>
+                  <th className="py-2 pr-4">Date Type</th>
+                  <th className="py-2 pr-4">Exact</th>
+                  <th className="py-2 pr-4">Range</th>
+                  <th className="py-2 pr-4">Window</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Sources</th>
+                  <th className="py-2 pr-4">Comments</th>
                 </tr>
-              ))}
-              {upcomingUndef.length === 0 && (
-                <tr>
-                  <td className="py-3 text-gray-500" colSpan={7}>
-                    No upcoming undefined events.
-                  </td>
+              </thead>
+              <tbody>
+                {inRangeList.map((ev: any) => (
+                  <tr key={ev.id} className="border-b last:border-0 align-top">
+                    <td className="py-2 pr-4">
+                      {ev.productSet?.name ?? "(set)"}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <TypeBadge variant={ev.type} />
+                    </td>
+                    <td className="py-2 pr-4">{ev.dateType}</td>
+                    <td className="py-2 pr-4">{fmtDate(ev.dateExact)}</td>
+                    <td className="py-2 pr-4">
+                      {fmtDate(ev.dateStart)}{" "}
+                      {ev.dateStart || ev.dateEnd ? "—" : ""}{" "}
+                      {fmtDate(ev.dateEnd)}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {fmtDate(ev.windowStart)}{" "}
+                      {ev.windowStart || ev.windowEnd ? "—" : ""}{" "}
+                      {fmtDate(ev.windowEnd)}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <StatusBadge variant={ev.status} />
+                    </td>
+                    <td className="py-2 pr-4">
+                      {ev.sourceClaims?.length ?? 0}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <EventComments eventId={ev.id} signedIn={signedIn} />
+                    </td>
+                  </tr>
+                ))}
+                {inRangeList.length === 0 && (
+                  <tr>
+                    <td className="py-3 text-gray-500" colSpan={9}>
+                      No events for this month.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* Tab: Upcoming (TBD / future WINDOW) */}
+
+      {activeTab === "upcoming" && (
+        <section className="rounded-card border shadow-card bg-white p-4">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-lg font-semibold">
+              Upcoming —{" "}
+              <MonthSwitcher
+                param="ymUpcoming"
+                value={firstStr(sp.ymUpcoming) ?? undefined}
+              />
+            </h2>
+          </div>
+          <div className="text-xs text-gray-500">
+            TBD always visible; WINDOW filtered to the selected month.
+          </div>
+          <div className="mt-3 overflow-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left border-b">
+                  <th className="py-2 pr-4">Product Set</th>
+                  <th className="py-2 pr-4">Type</th>
+                  <th className="py-2 pr-4">Date Type</th>
+                  <th className="py-2 pr-4">Window/TBD</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Sources</th>
+                  <th className="py-2 pr-4">Comments</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody>
+                {upcomingForTab.map((ev: any) => (
+                  <tr key={ev.id} className="border-b last:border-0 align-top">
+                    <td className="py-2 pr-4">
+                      {ev.productSet?.name ?? "(set)"}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <TypeBadge variant={ev.type} />
+                    </td>
+                    <td className="py-2 pr-4">{ev.dateType}</td>
+                    <td className="py-2 pr-4">
+                      {ev.dateType === "TBD"
+                        ? "TBD"
+                        : `${fmtDate(ev.windowStart)} — ${fmtDate(ev.windowEnd)}`}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <StatusBadge variant={ev.status} />
+                    </td>
+                    <td className="py-2 pr-4">
+                      {ev.sourceClaims?.length ?? 0}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <EventComments eventId={ev.id} signedIn={signedIn} />
+                    </td>
+                  </tr>
+                ))}
+                {upcomingForTab.length === 0 && (
+                  <tr>
+                    <td className="py-3 text-gray-500" colSpan={7}>
+                      No items for this month.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </SiteShell>
   );
 }

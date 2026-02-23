@@ -7,6 +7,7 @@ import SiteShell from "../components/SiteShell";
 import { prisma } from "app/lib/prisma";
 import { getUserSubscriptions, setUserSubscription } from "../data/prismaRepo";
 import { listEventsByDateRangeAndFilters } from "app/data/prismaRepo";
+import { TypeBadge, StatusBadge } from "app/ui/Badges";
 
 export const dynamic = "force-dynamic";
 
@@ -123,6 +124,16 @@ export default async function SubscriptionsPage({
     getUserSubscriptions(userId),
   ]);
   const subscribed = new Set<string>(subs);
+  
+  // Compute upcoming events for next 30 days, filtered to subscribed installIds
+  const now = new Date();
+  const upcomingRange = { start: now, end: addDays(now, 30) };
+  const installIds = subs; // subs is string[] of TcgProfileInstall.id
+
+  let upcoming: any[] = [];
+  if (installIds.length > 0) {
+    upcoming = await listEventsByDateRangeAndFilters(upcomingRange, { installIds });
+  }
 
   return (
     <SiteShell current="subscriptions" title="Subscriptions">
@@ -189,6 +200,51 @@ export default async function SubscriptionsPage({
           })}
         </div>
       </section>
+<section className="rounded-card border shadow-card bg-white p-4">
+  <div className="flex items-center justify-between mb-3">
+    <h2 className="text-lg font-semibold">Upcoming from your subscriptions (next 30 days)</h2>
+    <div className="text-sm text-storm-600">{upcoming.length} events</div>
+  </div>
+
+  <div className="overflow-auto">
+    <table className="min-w-full text-sm">
+      <thead>
+        <tr className="text-left border-b">
+          <th className="py-2 pr-4">Product Set</th>
+          <th className="py-2 pr-4">Type</th>
+          <th className="py-2 pr-4">Date</th>
+          <th className="py-2 pr-4">Status</th>
+          <th className="py-2 pr-4">Sources</th>
+        </tr>
+      </thead>
+      <tbody>
+        {upcoming.map((ev: any) => (
+          <tr key={ev.id} className="border-b last:border-0">
+            <td className="py-2 pr-4">{ev.productSet?.name ?? '(set)'}</td>
+            <td className="py-2 pr-4"><TypeBadge variant={ev.type} /></td>
+            <td className="py-2 pr-4">
+              {/* Show the best-available date, respecting type */}
+              {ev.dateType === 'EXACT' && fmtDate(ev.dateExact)}
+              {ev.dateType === 'RANGE' && `${fmtDate(ev.dateStart)} — ${fmtDate(ev.dateEnd)}`}
+              {ev.dateType === 'WINDOW' && `${fmtDate(ev.windowStart)} — ${fmtDate(ev.windowEnd)}`}
+              {ev.dateType === 'TBD' && 'TBD'}
+            </td>
+            <td className="py-2 pr-4"><StatusBadge variant={ev.status} /></td>
+            <td className="py-2 pr-4">{ev.sourceClaims?.length ?? 0}</td>
+          </tr>
+        ))}
+        {upcoming.length === 0 && (
+          <tr>
+            <td className="py-3 text-gray-500" colSpan={5}>
+              No upcoming events from your subscriptions in the next 30 days.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</section>
+
     </SiteShell>
   );
 }
