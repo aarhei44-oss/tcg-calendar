@@ -434,23 +434,6 @@ async function createSourceClaimsForEvent(
   }
 }
 
-async function seedUserAdmin() {
-  // Feel free to change the email if you prefer another
-  const email = "aaron@releasewatcher.com";
-  await prisma.user.upsert({
-    where: { email },
-    create: {
-      email,
-      name: "Aaron Hein",
-      preferences: { theme: "system" },
-    },
-    update: {
-      name: "Aaron Hein",
-      preferences: { theme: "system" },
-    },
-  });
-}
-
 async function seedScanHistory(installs: { id: string }[]) {
   const now = new Date();
 
@@ -611,9 +594,6 @@ async function main() {
     );
     await resetDatabase();
   }
-
-  // Admin user
-  await seedUserAdmin();
 
   // Packages & installs (disabled by default)
   const installs = await upsertPackagesAndInstalls();

@@ -1,5 +1,6 @@
 // /app/pages/api/user/init.ts
 import type { NextApiRequest, NextApiResponse } from "next";
+import { setUserIdCookie } from "app/lib/cookies";
 import { getOrCreateUserByEmail } from "app/data/prismaRepo";
 
 function buildUserIdSetCookie(userId: string) {
