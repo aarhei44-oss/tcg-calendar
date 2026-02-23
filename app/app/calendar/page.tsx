@@ -610,7 +610,7 @@ export async function EventComments({ eventId, signedIn }: { eventId: string; si
     isAdmin = (u?.role === 'admin');
   }
 const visibleComments = currentUserId
-  ? comments.filter((c) => c.user?.id === currentUserId)
+  ? comments.filter((c) => c.user?.id === currentUserId || isAdmin)
   : [];
 
 
