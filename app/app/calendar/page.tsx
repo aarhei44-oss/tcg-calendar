@@ -15,6 +15,7 @@ import FilterBar from "./FilterBar";
 import { TypeBadge, StatusBadge } from "app/ui/Badges";
 import Tabs from "./Tabs";
 import MonthSwitcher from "./MonthSwitcher";
+import { deleteCommentIfAllowed, getUserById } from '../data/prismaRepo'; // getUserById used below in UI
 
 const cookieStore = await cookies();
 const signedIn = !!cookieStore.get("userId")?.value;
@@ -69,6 +70,30 @@ export async function commentAction(formData: FormData) {
   redirect("/calendar?ok=1");
 }
 
+export async function deleteCommentAction(formData: FormData) {
+  'use server';
+
+  const hs = await headers();
+  const cookie = hs.get('cookie') ?? '';
+  const m = /(?:^|;\s*)userId=([^;]+)/.exec(cookie);
+  const userId = m?.[1] ?? null;
+
+  if (!userId) {
+    redirect('/calendar?ok=0&msg=not%20signed%20in');
+  }
+
+  const commentId = String(formData.get('commentId') ?? '');
+  if (!commentId) {
+    redirect('/calendar?ok=0&msg=missing%20commentId');
+  }
+
+  await deleteCommentIfAllowed(commentId, userId!);
+
+  // Revalidate and return to the previous URL if available
+  revalidatePath('/calendar');
+  const back = hs.get('referer') ?? '/calendar?ok=1';
+  redirect(back);
+}
 async function absUrl(path: string) {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
@@ -571,27 +596,24 @@ async function InstalledProfilesList({ signedIn }: { signedIn: boolean }) {
 }
 
 /** Per-event comments widget using UserNote.content via Pages API. */
-async function EventComments({
-  eventId,
-  signedIn,
-}: {
-  eventId: string;
-  signedIn: boolean;
-}) {
-  const hs = await headers();
-  const cookie = hs.get("cookie") ?? "";
 
-  const res = await fetch(await absUrl(`/api/events/${eventId}/comments`), {
-    cache: "no-store",
-    headers: { cookie },
-  });
+export async function EventComments({ eventId, signedIn }: { eventId: string; signedIn: boolean }) {
+  const baseRes = await fetch(await absUrl(`/api/events/${eventId}/comments`), { cache: 'no-store', headers: { cookie: (await headers()).get('cookie') ?? '' } });
+  const json = baseRes.ok ? await baseRes.json() : { comments: [] as any[] };
+  const comments: Array<{ id: string; content: string; user?: { id?: string; name?: string } }> = json.comments ?? [];
 
-  const json = res.ok ? await res.json() : { comments: [] as any[] };
-  const comments: Array<{
-    id: string;
-    content: string;
-    user?: { name?: string };
-  }> = json.comments ?? [];
+  // Get current user id & role
+  const currentUserId = cookieStore.get('userId')?.value ?? null;
+  let isAdmin = false;
+  if (currentUserId) {
+    const u = await getUserById(currentUserId);
+    isAdmin = (u?.role === 'admin');
+  }
+const visibleComments = currentUserId
+  ? comments.filter((c) => c.user?.id === currentUserId)
+  : [];
+
+
 
   return (
     <div className="space-y-2">
@@ -620,18 +642,42 @@ async function EventComments({
         </p>
       )}
 
-      {comments.length === 0 ? (
-        <p className="text-xs text-gray-500">No comments yet.</p>
+
+{visibleComments.length === 0 ? (
+        <p className="text-xs text-gray-500">You haven’t added any comments yet.</p>
       ) : (
         <ul className="space-y-1">
-          {comments.map((c) => (
-            <li key={c.id} className="text-xs">
-              <span className="font-medium">{c.user?.name ?? "User"}</span>{" "}
-              <span className="text-gray-700">— {c.content}</span>
-            </li>
-          ))}
+          {visibleComments.map((c) => {
+            const canDelete = !!currentUserId && (isAdmin || c.user?.id === currentUserId);
+            return (
+              <li key={c.id} className="text-xs flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <span className="font-medium">{c.user?.name ?? 'User'}</span>{' '}
+                  <span className="text-gray-700">— {c.content}</span>
+                </div>
+
+                {canDelete && (
+                  <form action={deleteCommentAction}>
+                    <input type="hidden" name="commentId" value={c.id} />
+                    <button
+                      type="submit"
+                      title="Delete comment"
+                      className="text-gray-500 hover:text-rose-600 p-1"
+                      aria-label="Delete comment"
+                    >
+                      {/* Trash icon (inline SVG) */}
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.5 3a1 1 0 00-.894.553L7.382 4H5a1 1 0 100 2h.278l.77 9.242A2 2 0 008.043 17h3.914a2 2 0 001.995-1.758L14.722 6H15a1 1 0 100-2h-2.382l-.224-.447A1 1 0 0011.5 3h-3zM9 7a1 1 0 012 0v7a1 1 0 11-2 0V7z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </form>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
   );
 }
+
