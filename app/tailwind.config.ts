@@ -1,4 +1,3 @@
-
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -24,10 +23,10 @@ module.exports = {
         },
       },
       boxShadow: {
-        'card': '0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 1px rgb(0 0 0 / 0.04)',
+        card: "0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 1px rgb(0 0 0 / 0.04)",
       },
       borderRadius: {
-        'card': '0.75rem', // ~rounded-xl
+        card: "0.75rem", // ~rounded-xl
       },
     },
   },

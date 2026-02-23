@@ -1,25 +1,37 @@
-
 /* eslint-disable no-console */
 // /app/prisma/seed.ts
 // Run with: npx tsx prisma/seed.ts [--fresh]
 // Purpose: Idempotent seed for PR-1 data layer with optional --fresh reset.
 
-import { PrismaClient, Prisma, SourceTier, SourceDisposition, DateType, ReleaseEventType, ReleaseStatus, WindowGranularity, ScanScopeType, ScanStatus, ScanTrigger, Region } from '@prisma/client';
+import {
+  PrismaClient,
+  Prisma,
+  SourceTier,
+  SourceDisposition,
+  DateType,
+  ReleaseEventType,
+  ReleaseStatus,
+  WindowGranularity,
+  ScanScopeType,
+  ScanStatus,
+  ScanTrigger,
+  Region,
+} from "@prisma/client";
 
-import 'dotenv/config';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
-import Database from 'better-sqlite3';
-import * as path from 'node:path';
-import * as fs from 'node:fs';
+import "dotenv/config";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import Database from "better-sqlite3";
+import * as path from "node:path";
+import * as fs from "node:fs";
 
 // --- Resolve DATABASE_URL to an absolute filesystem path & ensure folder exists ---
 const rawUrl = process.env.DATABASE_URL;
 
 // Default if env is missing
-let relativePath = './data/app.db';
-if (typeof rawUrl === 'string' && rawUrl.length > 0) {
-  if (rawUrl.startsWith('file:')) {
-    relativePath = rawUrl.slice('file:'.length);
+let relativePath = "./data/app.db";
+if (typeof rawUrl === "string" && rawUrl.length > 0) {
+  if (rawUrl.startsWith("file:")) {
+    relativePath = rawUrl.slice("file:".length);
   } else {
     relativePath = rawUrl;
   }
@@ -34,18 +46,19 @@ if (!fs.existsSync(dir)) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-
 // Build a proper file: URL that works on Windows (use forward slashes)
-const sqliteUrl = `file:${absDbPath.replace(/\\/g, '/')}`;
+const sqliteUrl = `file:${absDbPath.replace(/\\/g, "/")}`;
 
 // ✅ Use the URL-based constructor in v7
 const adapter = new PrismaBetterSqlite3({ url: sqliteUrl });
 
 const prisma = new PrismaClient({
   adapter,
-  log: process.env.NODE_ENV === 'development' ? ['query', 'warn', 'error'] : ['error'],
+  log:
+    process.env.NODE_ENV === "development"
+      ? ["query", "warn", "error"]
+      : ["error"],
 });
-
 
 // ------------------------------
 // Utilities
@@ -81,28 +94,41 @@ function addDays(base: Date, days: number): Date {
   return d;
 }
 
-function normalizeWindow(start: Date, granularity: WindowGranularity): { start: Date; end: Date } {
-  const s = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1, 0, 0, 0, 0));
+function normalizeWindow(
+  start: Date,
+  granularity: WindowGranularity,
+): { start: Date; end: Date } {
+  const s = new Date(
+    Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1, 0, 0, 0, 0),
+  );
   switch (granularity) {
-    case 'MONTH': {
-      const e = new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+    case "MONTH": {
+      const e = new Date(
+        Date.UTC(s.getUTCFullYear(), s.getUTCMonth() + 1, 0, 23, 59, 59, 999),
+      );
       return { start: s, end: e };
     }
-    case 'QUARTER': {
+    case "QUARTER": {
       const qStartMonth = Math.floor(s.getUTCMonth() / 3) * 3;
       const qs = new Date(Date.UTC(s.getUTCFullYear(), qStartMonth, 1));
-      const qe = new Date(Date.UTC(qs.getUTCFullYear(), qStartMonth + 3, 0, 23, 59, 59, 999));
+      const qe = new Date(
+        Date.UTC(qs.getUTCFullYear(), qStartMonth + 3, 0, 23, 59, 59, 999),
+      );
       return { start: qs, end: qe };
     }
-    case 'HALF': {
+    case "HALF": {
       const hStartMonth = s.getUTCMonth() < 6 ? 0 : 6;
       const hs = new Date(Date.UTC(s.getUTCFullYear(), hStartMonth, 1));
-      const he = new Date(Date.UTC(hs.getUTCFullYear(), hStartMonth + 6, 0, 23, 59, 59, 999));
+      const he = new Date(
+        Date.UTC(hs.getUTCFullYear(), hStartMonth + 6, 0, 23, 59, 59, 999),
+      );
       return { start: hs, end: he };
     }
-    case 'YEAR': {
+    case "YEAR": {
       const ys = new Date(Date.UTC(s.getUTCFullYear(), 0, 1));
-      const ye = new Date(Date.UTC(s.getUTCFullYear(), 11, 31, 23, 59, 59, 999));
+      const ye = new Date(
+        Date.UTC(s.getUTCFullYear(), 11, 31, 23, 59, 59, 999),
+      );
       return { start: ys, end: ye };
     }
   }
@@ -113,20 +139,24 @@ function normalizeWindow(start: Date, granularity: WindowGranularity): { start: 
 // ------------------------------
 
 const TCG_PACKAGES = [
-  { slug: 'one-piece', name: 'One Piece', version: '1.0.0' },
-  { slug: 'magic-the-gathering', name: 'Magic: The Gathering', version: '1.0.0' },
-  { slug: 'gundam-tcg', name: 'Gundam TCG', version: '1.0.0' },
-  { slug: 'pokemon', name: 'Pokemon', version: '1.0.0' },
-  { slug: 'riftbound', name: 'Riftbound', version: '1.0.0' },
-  { slug: 'lorcana', name: 'Lorcana', version: '1.0.0' },
-  { slug: 'flesh-and-blood', name: 'Flesh and Blood', version: '1.0.0' },
+  { slug: "one-piece", name: "One Piece", version: "1.0.0" },
+  {
+    slug: "magic-the-gathering",
+    name: "Magic: The Gathering",
+    version: "1.0.0",
+  },
+  { slug: "gundam-tcg", name: "Gundam TCG", version: "1.0.0" },
+  { slug: "pokemon", name: "Pokemon", version: "1.0.0" },
+  { slug: "riftbound", name: "Riftbound", version: "1.0.0" },
+  { slug: "lorcana", name: "Lorcana", version: "1.0.0" },
+  { slug: "flesh-and-blood", name: "Flesh and Blood", version: "1.0.0" },
 ];
 
 const DISCOVERY_PLACEHOLDERS = [
-  { host: 'official.tcg.example', tier: SourceTier.official, weight: 3 },
-  { host: 'distributor.example', tier: SourceTier.distributor, weight: 2 },
-  { host: 'retailer.example', tier: SourceTier.retailer, weight: 2 },
-  { host: 'aggregator.example', tier: SourceTier.aggregator, weight: 1 },
+  { host: "official.tcg.example", tier: SourceTier.official, weight: 3 },
+  { host: "distributor.example", tier: SourceTier.distributor, weight: 2 },
+  { host: "retailer.example", tier: SourceTier.retailer, weight: 2 },
+  { host: "aggregator.example", tier: SourceTier.aggregator, weight: 1 },
 ] as const;
 
 const TIER_CONFIDENCE: Record<SourceTier, number> = {
@@ -151,7 +181,7 @@ const DATE_TYPE_WEIGHTS = [
 async function resetDatabase(): Promise<void> {
   // Safe data wipe without dropping schema (works for SQLite)
   // Order matters only if FK cascades not set; we still do bottom-up to be safe.
-  await prisma.$executeRawUnsafe('PRAGMA foreign_keys = OFF;');
+  await prisma.$executeRawUnsafe("PRAGMA foreign_keys = OFF;");
   await prisma.userNote.deleteMany({});
   await prisma.user.deleteMany({});
   await prisma.sourceClaim.deleteMany({});
@@ -162,7 +192,7 @@ async function resetDatabase(): Promise<void> {
   await prisma.jobLock.deleteMany({});
   await prisma.tcgProfileInstall.deleteMany({});
   await prisma.tcgProfilePackage.deleteMany({});
-  await prisma.$executeRawUnsafe('PRAGMA foreign_keys = ON;');
+  await prisma.$executeRawUnsafe("PRAGMA foreign_keys = ON;");
 }
 
 async function upsertPackagesAndInstalls() {
@@ -176,11 +206,14 @@ async function upsertPackagesAndInstalls() {
         version: p.version,
         discoveryConfig: {
           // Simple placeholder config
-          strategy: 'simulated',
-          schedule: 'weekly',
+          strategy: "simulated",
+          schedule: "weekly",
         },
         sourceConfigs: {
-          sources: DISCOVERY_PLACEHOLDERS.map((d) => ({ host: d.host, tier: d.tier })),
+          sources: DISCOVERY_PLACEHOLDERS.map((d) => ({
+            host: d.host,
+            tier: d.tier,
+          })),
         },
       },
       create: {
@@ -188,11 +221,14 @@ async function upsertPackagesAndInstalls() {
         name: p.name,
         version: p.version,
         discoveryConfig: {
-          strategy: 'simulated',
-          schedule: 'weekly',
+          strategy: "simulated",
+          schedule: "weekly",
         },
         sourceConfigs: {
-          sources: DISCOVERY_PLACEHOLDERS.map((d) => ({ host: d.host, tier: d.tier })),
+          sources: DISCOVERY_PLACEHOLDERS.map((d) => ({
+            host: d.host,
+            tier: d.tier,
+          })),
         },
       },
     });
@@ -209,7 +245,7 @@ async function upsertPackagesAndInstalls() {
           packageId: pkg.id,
           installedVersion: p.version,
           enabled: false,
-          settings: { notes: 'seeded default install (disabled)' },
+          settings: { notes: "seeded default install (disabled)" },
         },
       }));
 
@@ -220,42 +256,48 @@ async function upsertPackagesAndInstalls() {
 }
 
 function makeSetCode(slug: string, idx: number): string {
-  const prefix = slug.split('-').map((s) => s[0]?.toUpperCase() ?? '').join('');
-  return `${prefix}-${String(idx).padStart(2, '0')}`;
+  const prefix = slug
+    .split("-")
+    .map((s) => s[0]?.toUpperCase() ?? "")
+    .join("");
+  return `${prefix}-${String(idx).padStart(2, "0")}`;
 }
 
 function randomStatus(rng: RNG): ReleaseStatus {
   // mostly announced/confirmed, with a few delayed/canceled/rumor
   const opts: { value: ReleaseStatus; weight: number }[] = [
-    { value: 'announced', weight: 40 },
-    { value: 'confirmed', weight: 35 },
-    { value: 'delayed', weight: 15 },
-    { value: 'rumor', weight: 8 },
-    { value: 'canceled', weight: 2 },
+    { value: "announced", weight: 40 },
+    { value: "confirmed", weight: 35 },
+    { value: "delayed", weight: 15 },
+    { value: "rumor", weight: 8 },
+    { value: "canceled", weight: 2 },
   ];
   return pickWeighted(rng, opts);
 }
 
 function randomEventType(rng: RNG): ReleaseEventType {
   const opts: { value: ReleaseEventType; weight: number }[] = [
-    { value: 'shelf', weight: 50 },
-    { value: 'prerelease', weight: 25 },
-    { value: 'promo', weight: 15 },
-    { value: 'special', weight: 10 },
+    { value: "shelf", weight: 50 },
+    { value: "prerelease", weight: 25 },
+    { value: "promo", weight: 15 },
+    { value: "special", weight: 10 },
   ];
   return pickWeighted(rng, opts);
 }
 
 function randomWindowGranularity(rng: RNG): WindowGranularity {
   return pickWeighted(rng, [
-    { value: 'MONTH', weight: 50 },
-    { value: 'QUARTER', weight: 25 },
-    { value: 'HALF', weight: 15 },
-    { value: 'YEAR', weight: 10 },
+    { value: "MONTH", weight: 50 },
+    { value: "QUARTER", weight: 25 },
+    { value: "HALF", weight: 15 },
+    { value: "YEAR", weight: 10 },
   ]);
 }
 
-function makeRandomReleaseEvent(rng: RNG, productSetId: string): Prisma.ReleaseEventCreateInput {
+function makeRandomReleaseEvent(
+  rng: RNG,
+  productSetId: string,
+): Prisma.ReleaseEventCreateInput {
   const now = new Date();
   const base = addDays(now, randInt(rng, -120, 240)); // spread around past/future ~1y
   const dateType = pickWeighted(rng, DATE_TYPE_WEIGHTS);
@@ -264,8 +306,17 @@ function makeRandomReleaseEvent(rng: RNG, productSetId: string): Prisma.ReleaseE
   const status = randomStatus(rng);
 
   // Confidence roughly tied to status (confirmed higher)
-  const confBase = { announced: 60, confirmed: 90, delayed: 70, canceled: 30, rumor: 20 } as const;
-  const confidence = Math.min(100, Math.max(0, Math.round(confBase[status] + (rng() - 0.5) * 20)));
+  const confBase = {
+    announced: 60,
+    confirmed: 90,
+    delayed: 70,
+    canceled: 30,
+    rumor: 20,
+  } as const;
+  const confidence = Math.min(
+    100,
+    Math.max(0, Math.round(confBase[status] + (rng() - 0.5) * 20)),
+  );
 
   const data: Prisma.ReleaseEventCreateInput = {
     productSet: { connect: { id: productSetId } },
@@ -274,24 +325,24 @@ function makeRandomReleaseEvent(rng: RNG, productSetId: string): Prisma.ReleaseE
     region: Region.US,
     status,
     confidence,
-    sourceSummary: 'Seeded simulated data',
+    sourceSummary: "Seeded simulated data",
     lastSeenAt: new Date(),
     isManualOverride: false,
   };
 
   // Populate date fields based on dateType
   switch (dateType) {
-    case 'EXACT': {
+    case "EXACT": {
       data.dateExact = base;
       break;
     }
-    case 'RANGE': {
+    case "RANGE": {
       const end = addDays(base, randInt(rng, 3, 21));
       data.dateStart = base;
       data.dateEnd = end;
       break;
     }
-    case 'WINDOW': {
+    case "WINDOW": {
       const gran = randomWindowGranularity(rng);
       const { start, end } = normalizeWindow(base, gran);
       data.windowGranularity = gran;
@@ -299,7 +350,7 @@ function makeRandomReleaseEvent(rng: RNG, productSetId: string): Prisma.ReleaseE
       data.windowEnd = end;
       break;
     }
-    case 'TBD': {
+    case "TBD": {
       // leave date fields null
       break;
     }
@@ -311,7 +362,7 @@ function makeRandomReleaseEvent(rng: RNG, productSetId: string): Prisma.ReleaseE
 async function createSourceClaimsForEvent(
   rng: RNG,
   eventId: string,
-  event: Prisma.ReleaseEventCreateInput
+  event: Prisma.ReleaseEventCreateInput,
 ) {
   const claimsCount = randInt(rng, 1, 3);
   const hosts = [...DISCOVERY_PLACEHOLDERS];
@@ -330,20 +381,29 @@ async function createSourceClaimsForEvent(
     let dateExact: Date | null = (event as any).dateExact ?? null;
     let dateStart: Date | null = (event as any).dateStart ?? null;
     let dateEnd: Date | null = (event as any).dateEnd ?? null;
-    let windowGranularity: WindowGranularity | null = (event as any).windowGranularity ?? null;
+    let windowGranularity: WindowGranularity | null =
+      (event as any).windowGranularity ?? null;
     let windowStart: Date | null = (event as any).windowStart ?? null;
     let windowEnd: Date | null = (event as any).windowEnd ?? null;
 
-    if (disposition === 'conflict') {
+    if (disposition === "conflict") {
       // Slightly alter the dates to represent disagreement
-      if (dateType === 'EXACT' && dateExact) dateExact = addDays(dateExact, randInt(rng, -7, 7));
-      if (dateType === 'RANGE' && dateStart && dateEnd) {
+      if (dateType === "EXACT" && dateExact)
+        dateExact = addDays(dateExact, randInt(rng, -7, 7));
+      if (dateType === "RANGE" && dateStart && dateEnd) {
         dateStart = addDays(dateStart, randInt(rng, -5, 0));
         dateEnd = addDays(dateEnd, randInt(rng, 1, 7));
       }
-      if (dateType === 'WINDOW' && windowStart && windowEnd && windowGranularity) {
+      if (
+        dateType === "WINDOW" &&
+        windowStart &&
+        windowEnd &&
+        windowGranularity
+      ) {
         // shift the window by one unit
-        const shiftDays = { MONTH: 30, QUARTER: 90, HALF: 182, YEAR: 365 }[windowGranularity];
+        const shiftDays = { MONTH: 30, QUARTER: 90, HALF: 182, YEAR: 365 }[
+          windowGranularity
+        ];
         windowStart = addDays(windowStart, randInt(rng, -shiftDays, shiftDays));
         windowEnd = addDays(windowEnd, randInt(rng, -shiftDays, shiftDays));
       }
@@ -368,7 +428,7 @@ async function createSourceClaimsForEvent(
         windowGranularity: windowGranularity ?? undefined,
         windowStart,
         windowEnd,
-        raw: { excerpt: 'seeded mock content' },
+        raw: { excerpt: "seeded mock content" },
       },
     });
   }
@@ -376,17 +436,17 @@ async function createSourceClaimsForEvent(
 
 async function seedUserAdmin() {
   // Feel free to change the email if you prefer another
-  const email = 'aaron@releasewatcher.com';
+  const email = "aaron@releasewatcher.com";
   await prisma.user.upsert({
     where: { email },
     create: {
       email,
-      name: 'Aaron Hein',
-      preferences: { theme: 'system' },
+      name: "Aaron Hein",
+      preferences: { theme: "system" },
     },
     update: {
-      name: 'Aaron Hein',
-      preferences: { theme: 'system' },
+      name: "Aaron Hein",
+      preferences: { theme: "system" },
     },
   });
 }
@@ -395,22 +455,24 @@ async function seedScanHistory(installs: { id: string }[]) {
   const now = new Date();
 
   // a couple of "all" scope runs
-  const existingAll = await prisma.scanRun.findMany({ where: { scopeType: 'all' } });
+  const existingAll = await prisma.scanRun.findMany({
+    where: { scopeType: "all" },
+  });
   if (existingAll.length === 0) {
     await prisma.scanRun.createMany({
       data: [
         {
-          scopeType: 'all',
-          status: 'succeeded',
-          trigger: 'scheduled',
+          scopeType: "all",
+          status: "succeeded",
+          trigger: "scheduled",
           totals: { found: 120, updated: 45, new: 20, conflicts: 6, errors: 1 },
           startedAt: addDays(now, -7),
           finishedAt: addDays(now, -7),
         },
         {
-          scopeType: 'all',
-          status: 'succeeded',
-          trigger: 'manual',
+          scopeType: "all",
+          status: "succeeded",
+          trigger: "manual",
           totals: { found: 98, updated: 10, new: 5, conflicts: 2, errors: 0 },
           startedAt: addDays(now, -2),
           finishedAt: addDays(now, -2),
@@ -422,7 +484,7 @@ async function seedScanHistory(installs: { id: string }[]) {
   // a few per-tcg runs
   for (const inst of installs.slice(0, 3)) {
     const exists = await prisma.scanRun.findFirst({
-      where: { scopeType: 'tcg', scopeId: inst.id },
+      where: { scopeType: "tcg", scopeId: inst.id },
     });
     if (!exists) {
       await prisma.scanRun.create({
@@ -442,19 +504,24 @@ async function seedScanHistory(installs: { id: string }[]) {
 
 async function seedDiscoveryHits(installs: { id: string }[], rng: RNG) {
   for (const inst of installs.slice(0, 3)) {
-    const count = await prisma.discoveryHit.count({ where: { tcgProfileInstallId: inst.id } });
+    const count = await prisma.discoveryHit.count({
+      where: { tcgProfileInstallId: inst.id },
+    });
     if (count > 0) continue;
 
     const n = randInt(rng, 2, 4);
     for (let i = 0; i < n; i++) {
-      const src = pickWeighted(rng, DISCOVERY_PLACEHOLDERS.map((d) => ({ value: d, weight: d.weight })));
+      const src = pickWeighted(
+        rng,
+        DISCOVERY_PLACEHOLDERS.map((d) => ({ value: d, weight: d.weight })),
+      );
       const url = `https://${src.host}/discover/${inst.id}/${i + 1}`;
       await prisma.discoveryHit.create({
         data: {
           tcgProfileInstallId: inst.id,
           url,
-          title: 'Simulated discovery hit',
-          raw: { title: 'Simulated discovery hit', tags: ['seed'] },
+          title: "Simulated discovery hit",
+          raw: { title: "Simulated discovery hit", tags: ["seed"] },
         },
       });
     }
@@ -484,8 +551,10 @@ export async function enableProfilesAndSeedData(params: {
     });
     if (existingSets.length > 0) continue;
 
-    const pkg = await prisma.tcgProfilePackage.findUnique({ where: { id: install.packageId } });
-    const slug = instRef.slug ?? pkg?.slug ?? 'tcg';
+    const pkg = await prisma.tcgProfilePackage.findUnique({
+      where: { id: install.packageId },
+    });
+    const slug = instRef.slug ?? pkg?.slug ?? "tcg";
 
     // Create 4–6 product sets
     const setCount = randInt(rng, 4, 6);
@@ -496,7 +565,7 @@ export async function enableProfilesAndSeedData(params: {
         data: {
           tcgProfileInstallId: install.id,
           code,
-          name: `${slug.replace(/-/g, ' ')} Set ${sIdx}`,
+          name: `${slug.replace(/-/g, " ")} Set ${sIdx}`,
           releaseQuarter: `Q${((sIdx - 1) % 4) + 1}`,
           meta: { seeded: true },
         },
@@ -514,7 +583,7 @@ export async function enableProfilesAndSeedData(params: {
         const event = await prisma.releaseEvent.create({ data: eventInput });
 
         // Occasionally mark as delayed (adds some variety)
-        if (Math.random() < 0.15 && event.status !== 'canceled') {
+        if (Math.random() < 0.15 && event.status !== "canceled") {
           await prisma.releaseEvent.update({
             where: { id: event.id },
             data: { status: ReleaseStatus.delayed },
@@ -534,10 +603,12 @@ export async function enableProfilesAndSeedData(params: {
 
 async function main() {
   const args = process.argv.slice(2);
-  const isFresh = args.includes('--fresh');
+  const isFresh = args.includes("--fresh");
 
   if (isFresh) {
-    console.log('⚠️  --fresh detected: wiping existing data (but keeping schema)...');
+    console.log(
+      "⚠️  --fresh detected: wiping existing data (but keeping schema)...",
+    );
     await resetDatabase();
   }
 
@@ -557,13 +628,17 @@ async function main() {
   // you can call enableProfilesAndSeedData({ installs: [...] }) here
   // OR run a separate script later.
 
-  console.log('✅ Seed completed (packages, installs disabled, admin user, discovery hits, scan history).');
-  console.log('ℹ️  To generate sets/events for an install: import and call enableProfilesAndSeedData({...}).');
+  console.log(
+    "✅ Seed completed (packages, installs disabled, admin user, discovery hits, scan history).",
+  );
+  console.log(
+    "ℹ️  To generate sets/events for an install: import and call enableProfilesAndSeedData({...}).",
+  );
 }
 
 main()
   .catch((e) => {
-    console.error('Seed failed:', e);
+    console.error("Seed failed:", e);
     process.exit(1);
   })
   .finally(async () => {

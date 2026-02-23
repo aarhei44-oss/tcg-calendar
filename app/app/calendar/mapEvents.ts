@@ -1,11 +1,10 @@
-
 // /app/app/calendar/mapEvents.ts
-import type { Event as RBCEvent } from 'react-big-calendar';
+import type { Event as RBCEvent } from "react-big-calendar";
 
 export type ReleaseEventLike = {
   id: string;
   type: string;
-  dateType: 'EXACT' | 'RANGE' | 'WINDOW' | 'TBD';
+  dateType: "EXACT" | "RANGE" | "WINDOW" | "TBD";
   dateExact?: string | null;
   dateStart?: string | null;
   dateEnd?: string | null;
@@ -29,7 +28,9 @@ function toDate(d?: string | null): Date | null {
   return isNaN(x.getTime()) ? null : x;
 }
 
-export function mapReleaseEventsToCalendar(events: ReleaseEventLike[]): CalendarEvent[] {
+export function mapReleaseEventsToCalendar(
+  events: ReleaseEventLike[],
+): CalendarEvent[] {
   const out: CalendarEvent[] = [];
 
   for (const ev of events) {
@@ -42,7 +43,7 @@ export function mapReleaseEventsToCalendar(events: ReleaseEventLike[]): Calendar
       allDay: true,
     };
 
-    if (ev.dateType === 'EXACT') {
+    if (ev.dateType === "EXACT") {
       const exact = toDate(ev.dateExact);
       if (!exact) continue;
       const end = new Date(exact);
@@ -51,12 +52,12 @@ export function mapReleaseEventsToCalendar(events: ReleaseEventLike[]): Calendar
         ...base,
         start: exact,
         end,
-        title: base.productSetName ?? '(set)',
+        title: base.productSetName ?? "(set)",
       });
       continue;
     }
 
-    if (ev.dateType === 'RANGE') {
+    if (ev.dateType === "RANGE") {
       const s = toDate(ev.dateStart);
       const e = toDate(ev.dateEnd);
       if (!s || !e) continue;
@@ -66,12 +67,12 @@ export function mapReleaseEventsToCalendar(events: ReleaseEventLike[]): Calendar
         ...base,
         start: s,
         end,
-        title: base.productSetName ?? '(set)',
+        title: base.productSetName ?? "(set)",
       });
       continue;
     }
 
-    if (ev.dateType === 'WINDOW') {
+    if (ev.dateType === "WINDOW") {
       const s = toDate(ev.windowStart);
       const e = toDate(ev.windowEnd);
       if (!s || !e) continue;
@@ -81,7 +82,7 @@ export function mapReleaseEventsToCalendar(events: ReleaseEventLike[]): Calendar
         ...base,
         start: s,
         end,
-        title: base.productSetName ?? '(set)',
+        title: base.productSetName ?? "(set)",
       });
       continue;
     }

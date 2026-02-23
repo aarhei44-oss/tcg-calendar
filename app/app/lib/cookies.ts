@@ -1,8 +1,7 @@
-
 // /app/app/lib/cookies.ts
-import { cookies } from 'next/headers';
+import { cookies } from "next/headers";
 
-const COOKIE_NAME = 'userId';
+const COOKIE_NAME = "userId";
 
 /**
  * Reads the `userId` cookie from the current request context.
@@ -25,13 +24,13 @@ export async function getUserIdFromCookie(): Promise<string | null> {
  */
 export async function setUserIdCookie(userId: string): Promise<void> {
   const store = await cookies(); // Await the cookie store
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = process.env.NODE_ENV === "production";
   store.set({
     name: COOKIE_NAME,
     value: userId,
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: "lax",
     secure: isProd,
-    path: '/',
+    path: "/",
   });
 }

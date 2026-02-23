@@ -1,11 +1,16 @@
-
 /* /app/app/globals.css */
 
 /* Tailwind v4: One import is enough */
-@import 'tailwindcss';
+@import "tailwindcss";
 
 /* Optional page baseline */
-:root { color-scheme: light dark; }
-html, body, #__next { height: 100%; }
+:root {
+  color-scheme: light dark;
+}
+html,
+body,
+#__next {
+  height: 100%;
+}
 
 /* No @apply here — we’ll put page classes on <body> in layout.tsx */

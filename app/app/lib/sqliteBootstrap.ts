@@ -1,8 +1,7 @@
-
 // /app/app/lib/sqliteBootstrap.ts
-'use server';
+"use server";
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 let initialized: Promise<void> | null = null;
 
