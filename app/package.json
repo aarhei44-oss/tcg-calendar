@@ -14,9 +14,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+<<<<<<< HEAD
     "@auth/prisma-adapter": "^1.6.0",
     "@next-auth/prisma-adapter": "^1.0.7",
     "@prisma/adapter-better-sqlite3": "^7.4.1",
+=======
+    "@next-auth/prisma-adapter": "^1.0.7",
+    "@prisma/adapter-better-sqlite3": "^7.4.0",
+>>>>>>> 3ed7b76 (working on implementing complete oauth2 through google. currently non-functional)
     "@prisma/client": "^7.4.0",
     "better-sqlite3": "^12.6.2",
     "date-fns": "^4.1.0",

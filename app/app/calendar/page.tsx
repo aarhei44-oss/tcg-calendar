@@ -591,6 +591,7 @@ export async function EventComments({
     user?: { id?: string; name?: string };
   }> = json.comments ?? [];
 
+<<<<<<< HEAD
   // ✅ Determine user + admin via session + DB (no cookies, no role checks)
   const session = await getSession();
   const currentUserId = session?.user?.id ?? null;
@@ -600,6 +601,17 @@ export async function EventComments({
     ? comments
     : currentUserId
     ? comments.filter((c) => c.user?.id === currentUserId)
+=======
+  // Get current user id & role
+  const currentUserId = cookieStore.get("userId")?.value ?? null;
+  let isAdmin = false;
+  if (currentUserId) {
+    const u = await getUserById(currentUserId);
+    isAdmin = u?.role === "admin";
+  }
+  const visibleComments = isAdmin ? comments : currentUserId
+    ? comments.filter((c) => c.user?.id === currentUserId )
+>>>>>>> 3ed7b76 (working on implementing complete oauth2 through google. currently non-functional)
     : [];
 
   return (
