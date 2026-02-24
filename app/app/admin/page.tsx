@@ -1,3 +1,4 @@
+
 // /app/app/admin/page.tsx
 import React from "react";
 import SiteShell from "../components/SiteShell";
@@ -6,6 +7,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import AdminTabs from "./AdminTabs";
+import DbCrudClient from "./db/DbCrudClient";
+import { auth } from "app/auth";
+import { isAdminByPrefs } from "app/data/prismaRepo";
+
 // ---- Helpers ----
 async function getInstalls() {
   return prisma.tcgProfileInstall.findMany({
@@ -65,7 +70,7 @@ export async function enableAndSeedSelected(formData: FormData) {
 
   if (!res.ok) {
     const msg = encodeURIComponent(
-      `Enable & seed failed: ${res.status} ${await res.text()}`,
+      `Enable & seed failed: ${res.status} ${await res.text()}`
     );
     redirect(`/admin?ok=0&msg=${msg}`);
   }
@@ -88,11 +93,16 @@ export default async function AdminPage({
   const adminTab =
     (Array.isArray(sp.adminTab) ? sp.adminTab[0] : sp.adminTab) ?? "profiles";
 
+  // Admin guard for System tools (and optionally for the whole page if you prefer)
+  const session = await auth();
+  const userId = session?.user?.id;
+  const isAdmin = userId ? await isAdminByPrefs(userId) : false;
+
   return (
     <SiteShell current="admin" title="Admin">
       <div className="flex items-center justify-between">
         <AdminTabs />
-        {/* (Optional) room for admin quick actions on the right */}
+        {/* (Optional) add admin quick actions here */}
       </div>
 
       <section className="rounded-card border shadow-card bg-white p-4">
@@ -108,6 +118,7 @@ export default async function AdminPage({
             {msg ? ` — ${decodeURIComponent(String(msg))}` : ""}
           </div>
         )}
+
         {adminTab === "profiles" && (
           <div>
             {/* Bulk actions */}
@@ -119,7 +130,7 @@ export default async function AdminPage({
                 <strong>Enable &amp; Seed Selected</strong>.
               </p>
 
-              {/* Visible control form (the checkboxes live in the table, linked via form attribute) */}
+              {/* Visible control form (checkboxes live in the table, linked via form attribute) */}
               <form
                 action={enableAndSeedSelected}
                 id="bulk-enable-seed-form"
@@ -134,8 +145,7 @@ export default async function AdminPage({
                     className="h-4 w-4"
                   />
                   <span>
-                    Also generate sample product sets &amp; release events
-                    (seed)
+                    Also generate sample product sets &amp; release events (seed)
                   </span>
                 </label>
 
@@ -149,7 +159,6 @@ export default async function AdminPage({
             </section>
 
             {/* Installs table */}
-
             <section className="rounded-card border shadow-card bg-white p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-semibold">TcgProfileInstalls</h2>
@@ -245,6 +254,7 @@ export default async function AdminPage({
             </section>
           </div>
         )}
+
         {adminTab === "users" && (
           <section className="rounded-card border shadow-card bg-white p-4">
             <h2 className="text-lg font-semibold">Users</h2>
@@ -256,15 +266,12 @@ export default async function AdminPage({
         )}
 
         {adminTab === "system" && (
-          <section className="rounded-card border shadow-card bg-white p-4 space-y-3">
+          <section className="rounded-card border shadow-card bg-white p-4 space-y-4">
             <h2 className="text-lg font-semibold">System</h2>
             <ul className="text-sm list-disc pl-5 text-gray-700">
               <li>
                 Health:{" "}
-                <a
-                  href="/api/health/check"
-                  className="text-blue-600 hover:underline"
-                >
+                <a href="/api/health/check" className="text-blue-600 hover:underline">
                   /api/health/check
                 </a>
               </li>
@@ -275,9 +282,20 @@ export default async function AdminPage({
               </li>
               <li>Runtime: Node 20 (Docker), Prisma v7 (better‑sqlite3)</li>
             </ul>
+
+            {/* Admin-only DB Tools */}
+            {!isAdmin ? (
+              <p className="text-sm text-red-600">Not authorized to access DB Tools.</p>
+            ) : (
+              <div className="rounded border p-4">
+                <h3 className="font-semibold mb-2">DB Tools (whitelisted models)</h3>
+                <DbCrudClient />
+              </div>
+            )}
           </section>
         )}
       </section>
     </SiteShell>
   );
 }
+
