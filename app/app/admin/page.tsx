@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import AdminTabs from "./AdminTabs";
 import DbCrudClient from "./db/DbCrudClient";
-import { auth } from "app/auth";
+import { getSession } from "app/auth";
 import { isAdminByPrefs } from "app/data/prismaRepo";
 
 // ---- Helpers ----
@@ -94,7 +94,7 @@ export default async function AdminPage({
     (Array.isArray(sp.adminTab) ? sp.adminTab[0] : sp.adminTab) ?? "profiles";
 
   // Admin guard for System tools (and optionally for the whole page if you prefer)
-  const session = await auth();
+  const session = await getSession();
   const userId = session?.user?.id;
   const isAdmin = userId ? await isAdminByPrefs(userId) : false;
 

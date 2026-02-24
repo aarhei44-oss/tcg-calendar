@@ -1,62 +1,72 @@
-
 "use server";
 
 import { prisma } from "app/lib/prisma";
 import { isAdminByPrefs } from "app/data/prismaRepo";
-import { auth } from "app/auth";
+import { getSession } from "app/auth";
+import { Prisma } from "@prisma/client";
 
-// Whitelist the tables you want to expose
-const delegates = {
-  User: prisma.user,
-  ProductSet: prisma.productSet,
-  ReleaseEvent: prisma.releaseEvent,
-  SourceClaim: prisma.sourceClaim,
-  ScanRun: prisma.scanRun,
-  DiscoveryHit: prisma.discoveryHit,
-  TcgProfilePackage: prisma.tcgProfilePackage,
-  TcgProfileInstall: prisma.tcgProfileInstall,
-  UserNote: prisma.userNote,
-  JobLock: prisma.jobLock,
-} as const;
+function modelToDelegateKey(model: string) {
+  return model.slice(0, 1).toLowerCase() + model.slice(1);
+}
 
-type TableName = keyof typeof delegates;
+function getDelegate(model: string) {
+  const key = modelToDelegateKey(model);
+  const delegate = (prisma as any)[key];
+  if (!delegate) {
+    throw new Error(
+      `No Prisma delegate found for model "${model}" (key "${key}")`,
+    );
+  }
+  return delegate;
+}
+
+function modelHasId(model: string) {
+  const m = Prisma.dmmf.datamodel.models.find((x) => x.name === model);
+  return !!m?.fields.find((f) => f.name === "id");
+}
 
 async function ensureAdmin() {
-  const session = await auth();
+  const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await isAdminByPrefs(userId))) {
     throw new Error("Not authorized");
   }
 }
 
-export function listTables(): TableName[] {
-  return Object.keys(delegates) as TableName[];
-}
-
-export async function listRows(table: TableName, take = 25) {
+export async function listRows(model: string, take = 25) {
   await ensureAdmin();
-  return (await (delegates[table] as any).findMany({
+  const delegate = getDelegate(model);
+  const orderBy = modelHasId(model) ? { id: "desc" } : undefined;
+  return (await delegate.findMany({
     take,
-    orderBy: { id: "desc" },
+    ...(orderBy ? { orderBy } : {}),
   })) as any[];
 }
 
-export async function createRow(table: TableName, data: any) {
+export async function createRow(model: string, data: any) {
   await ensureAdmin();
-  return (await (delegates[table] as any).create({ data })) as any;
+  const delegate = getDelegate(model);
+  return (await delegate.create({ data })) as any;
 }
 
-export async function updateRow(table: TableName, id: string | number, data: any) {
+export async function updateRow(model: string, where: any, data: any) {
   await ensureAdmin();
-  return (await (delegates[table] as any).update({
-    where: { id },
-    data,
-  })) as any;
+  if (!where || typeof where !== "object") {
+    throw new Error(
+      "`where` must be an object (e.g., { id: ... } or composite key).",
+    );
+  }
+  const delegate = getDelegate(model);
+  return (await delegate.update({ where, data })) as any;
 }
 
-export async function deleteRow(table: TableName, id: string | number) {
+export async function deleteRow(model: string, where: any) {
   await ensureAdmin();
-  return (await (delegates[table] as any).delete({
-    where: { id },
-  })) as any;
+  if (!where || typeof where !== "object") {
+    throw new Error(
+      "`where` must be an object (e.g., { id: ... } or composite key).",
+    );
+  }
+  const delegate = getDelegate(model);
+  return (await delegate.delete({ where })) as any;
 }

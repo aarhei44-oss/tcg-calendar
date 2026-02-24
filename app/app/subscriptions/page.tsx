@@ -1,6 +1,5 @@
 // /app/app/subscriptions/page.tsx
 import React from "react";
-import { headers, cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import SiteShell from "../components/SiteShell";
@@ -8,6 +7,8 @@ import { prisma } from "app/lib/prisma";
 import { getUserSubscriptions, setUserSubscription } from "../data/prismaRepo";
 import { listEventsByDateRangeAndFilters } from "app/data/prismaRepo";
 import { TypeBadge, StatusBadge } from "app/ui/Badges";
+import CalendarSignInGate from "../calendar/SignInGate";
+import { getSession } from "../auth";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +27,10 @@ function fmtDate(d?: string | Date | null): string {
 export async function toggleSubscription(formData: FormData) {
   "use server";
 
-  const hs = await headers();
-  const cookie = hs.get("cookie") ?? "";
-  const userIdMatch = /(?:^|;\s*)userId=([^;]+)/.exec(cookie);
-  const userId = userIdMatch?.[1] ?? null;
+  // ✅ Use NextAuth session (no cookie parsing)
+  const session = await getSession();
+  const userId = session?.user?.id ?? null;
+
   if (!userId) {
     redirect("/subscriptions?ok=0&msg=not%20signed%20in");
   }
@@ -54,62 +55,28 @@ export default async function SubscriptionsPage({
   const ok = Array.isArray(sp.ok) ? sp.ok[0] : sp.ok;
   const msg = Array.isArray(sp.msg) ? sp.msg[0] : sp.msg;
 
-  const store = await cookies();
-  const userId = store.get("userId")?.value ?? null;
+  // ✅ Session identity (no cookies)
+  const session = await getSession();
+  const userId = session?.user?.id ?? null;
 
-  // No identity yet → prompt Name+Email
+  // Signed out → show sign-in gate only
   if (!userId) {
     return (
       <SiteShell current="subscriptions" title="Subscriptions">
         {ok && (
           <div
-            className={`rounded border px-3 py-2 text-sm ${ok === "1" ? "border-green-300 bg-green-50 text-green-800" : "border-red-300 bg-red-50 text-red-800"}`}
+            className={`rounded border px-3 py-2 text-sm ${
+              ok === "1"
+                ? "border-green-300 bg-green-50 text-green-800"
+                : "border-red-300 bg-red-50 text-red-800"
+            }`}
           >
             {ok === "1" ? "Success" : "Action failed"}
             {msg ? ` — ${decodeURIComponent(msg as string)}` : ""}
           </div>
         )}
 
-        <section className="rounded-card border shadow-card bg-white p-4 space-y-3">
-          <h2 className="text-lg font-semibold">Set your name</h2>
-          <form
-            action="/api/user/init"
-            method="post"
-            className="grid gap-2 sm:grid-cols-2"
-          >
-            <label className="text-sm">
-              <span className="block">Name</span>
-              <input
-                className="border rounded px-2 py-1 w-full"
-                name="name"
-                type="text"
-                placeholder="Your name"
-                required
-              />
-            </label>
-            <label className="text-sm">
-              <span className="block">Email</span>
-              <input
-                className="border rounded px-2 py-1 w-full"
-                name="email"
-                type="email"
-                placeholder="you@example.com"
-                required
-              />
-            </label>
-            <div className="sm:col-span-2">
-              <button
-                type="submit"
-                className="text-xs px-3 py-1 rounded bg-brandAccent-600 text-white hover:bg-brandAccent-700"
-              >
-                Save
-              </button>
-            </div>
-          </form>
-          <p className="text-xs text-gray-600">
-            We’ll set a secure cookie to remember you on this device.
-          </p>
-        </section>
+        <CalendarSignInGate />
       </SiteShell>
     );
   }
@@ -124,7 +91,7 @@ export default async function SubscriptionsPage({
     getUserSubscriptions(userId),
   ]);
   const subscribed = new Set<string>(subs);
-  
+
   // Compute upcoming events for next 30 days, filtered to subscribed installIds
   const now = new Date();
   const upcomingRange = { start: now, end: addDays(now, 30) };
@@ -132,14 +99,20 @@ export default async function SubscriptionsPage({
 
   let upcoming: any[] = [];
   if (installIds.length > 0) {
-    upcoming = await listEventsByDateRangeAndFilters(upcomingRange, { installIds });
+    upcoming = await listEventsByDateRangeAndFilters(upcomingRange, {
+      installIds,
+    });
   }
 
   return (
     <SiteShell current="subscriptions" title="Subscriptions">
       {ok && (
         <div
-          className={`rounded border px-3 py-2 text-sm ${ok === "1" ? "border-green-300 bg-green-50 text-green-800" : "border-red-300 bg-red-50 text-red-800"}`}
+          className={`rounded border px-3 py-2 text-sm ${
+            ok === "1"
+              ? "border-green-300 bg-green-50 text-green-800"
+              : "border-red-300 bg-red-50 text-red-800"
+          }`}
         >
           {ok === "1" ? "Success" : "Action failed"}
           {msg ? ` — ${decodeURIComponent(msg as string)}` : ""}
@@ -200,51 +173,62 @@ export default async function SubscriptionsPage({
           })}
         </div>
       </section>
-<section className="rounded-card border shadow-card bg-white p-4">
-  <div className="flex items-center justify-between mb-3">
-    <h2 className="text-lg font-semibold">Upcoming from your subscriptions (next 30 days)</h2>
-    <div className="text-sm text-storm-600">{upcoming.length} events</div>
-  </div>
 
-  <div className="overflow-auto">
-    <table className="min-w-full text-sm">
-      <thead>
-        <tr className="text-left border-b">
-          <th className="py-2 pr-4">Product Set</th>
-          <th className="py-2 pr-4">Type</th>
-          <th className="py-2 pr-4">Date</th>
-          <th className="py-2 pr-4">Status</th>
-          <th className="py-2 pr-4">Sources</th>
-        </tr>
-      </thead>
-      <tbody>
-        {upcoming.map((ev: any) => (
-          <tr key={ev.id} className="border-b last:border-0">
-            <td className="py-2 pr-4">{ev.productSet?.name ?? '(set)'}</td>
-            <td className="py-2 pr-4"><TypeBadge variant={ev.type} /></td>
-            <td className="py-2 pr-4">
-              {/* Show the best-available date, respecting type */}
-              {ev.dateType === 'EXACT' && fmtDate(ev.dateExact)}
-              {ev.dateType === 'RANGE' && `${fmtDate(ev.dateStart)} — ${fmtDate(ev.dateEnd)}`}
-              {ev.dateType === 'WINDOW' && `${fmtDate(ev.windowStart)} — ${fmtDate(ev.windowEnd)}`}
-              {ev.dateType === 'TBD' && 'TBD'}
-            </td>
-            <td className="py-2 pr-4"><StatusBadge variant={ev.status} /></td>
-            <td className="py-2 pr-4">{ev.sourceClaims?.length ?? 0}</td>
-          </tr>
-        ))}
-        {upcoming.length === 0 && (
-          <tr>
-            <td className="py-3 text-gray-500" colSpan={5}>
-              No upcoming events from your subscriptions in the next 30 days.
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-</section>
+      <section className="rounded-card border shadow-card bg-white p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">
+            Upcoming from your subscriptions (next 30 days)
+          </h2>
+          <div className="text-sm text-storm-600">{upcoming.length} events</div>
+        </div>
 
+        <div className="overflow-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left border-b">
+                <th className="py-2 pr-4">Product Set</th>
+                <th className="py-2 pr-4">Type</th>
+                <th className="py-2 pr-4">Date</th>
+                <th className="py-2 pr-4">Status</th>
+                <th className="py-2 pr-4">Sources</th>
+              </tr>
+            </thead>
+            <tbody>
+              {upcoming.map((ev: any) => (
+                <tr key={ev.id} className="border-b last:border-0">
+                  <td className="py-2 pr-4">
+                    {ev.productSet?.name ?? "(set)"}
+                  </td>
+                  <td className="py-2 pr-4">
+                    <TypeBadge variant={ev.type} />
+                  </td>
+                  <td className="py-2 pr-4">
+                    {/* Show the best-available date, respecting type */}
+                    {ev.dateType === "EXACT" && fmtDate(ev.dateExact)}
+                    {ev.dateType === "RANGE" &&
+                      `${fmtDate(ev.dateStart)} — ${fmtDate(ev.dateEnd)}`}
+                    {ev.dateType === "WINDOW" &&
+                      `${fmtDate(ev.windowStart)} — ${fmtDate(ev.windowEnd)}`}
+                    {ev.dateType === "TBD" && "TBD"}
+                  </td>
+                  <td className="py-2 pr-4">
+                    <StatusBadge variant={ev.status} />
+                  </td>
+                  <td className="py-2 pr-4">{ev.sourceClaims?.length ?? 0}</td>
+                </tr>
+              ))}
+              {upcoming.length === 0 && (
+                <tr>
+                  <td className="py-3 text-gray-500" colSpan={5}>
+                    No upcoming events from your subscriptions in the next 30
+                    days.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </SiteShell>
   );
 }

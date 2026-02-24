@@ -1,33 +1,31 @@
 // /app/app/calendar/page.tsx
 import SiteShell from "../components/SiteShell";
-import { cookies, headers } from "next/headers";
-import Link from "next/link";
+import { headers } from "next/headers";
+import CalendarSignInGate from "./SignInGate";
 import {
   listEventsByDateRangeAndFilters,
   listUpcomingUndefined,
+  addEventComment,
+  setUserSubscription,
+  deleteCommentIfAllowed,
+  isAdminByPrefs,
 } from "../data/prismaRepo";
 import ClientCalendar from "./ClientCalendar";
 import { mapReleaseEventsToCalendar } from "./mapEvents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addEventComment, setUserSubscription } from "../data/prismaRepo";
 import FilterBar from "./FilterBar";
 import { TypeBadge, StatusBadge } from "app/ui/Badges";
 import Tabs from "./Tabs";
 import MonthSwitcher from "./MonthSwitcher";
-import { deleteCommentIfAllowed, getUserById } from "../data/prismaRepo"; // getUserById used below in UI
 import EventDrawer from "./EventDrawer";
-
-const cookieStore = await cookies();
-const signedIn = !!cookieStore.get("userId")?.value;
+import { getSession } from "../auth";
 
 export async function subscribeAction(formData: FormData) {
   "use server";
-  const hs = await headers();
-  const cookie = hs.get("cookie") ?? "";
-  // In server actions, we can read cookies via headers or next/headers cookies()
-  const userIdMatch = /(?:^|;\s*)userId=([^;]+)/.exec(cookie);
-  const userId = userIdMatch?.[1] ?? null;
+  // ✅ Session-based user id (no cookie parsing)
+  const session = await getSession();
+  const userId = session?.user?.id ?? null;
 
   if (!userId) {
     redirect("/calendar?ok=0&msg=not%20signed%20in");
@@ -47,10 +45,9 @@ export async function subscribeAction(formData: FormData) {
 
 export async function commentAction(formData: FormData) {
   "use server";
-  const hs = await headers();
-  const cookie = hs.get("cookie") ?? "";
-  const userIdMatch = /(?:^|;\s*)userId=([^;]+)/.exec(cookie);
-  const userId = userIdMatch?.[1] ?? null;
+  // ✅ Session-based user id (no cookie parsing)
+  const session = await getSession();
+  const userId = session?.user?.id ?? null;
 
   if (!userId) {
     redirect("/calendar?ok=0&msg=not%20signed%20in");
@@ -73,11 +70,9 @@ export async function commentAction(formData: FormData) {
 
 export async function deleteCommentAction(formData: FormData) {
   "use server";
-
-  const hs = await headers();
-  const cookie = hs.get("cookie") ?? "";
-  const m = /(?:^|;\s*)userId=([^;]+)/.exec(cookie);
-  const userId = m?.[1] ?? null;
+  // ✅ Session-based user id (no cookie parsing)
+  const session = await getSession();
+  const userId = session?.user?.id ?? null;
 
   if (!userId) {
     redirect("/calendar?ok=0&msg=not%20signed%20in");
@@ -92,9 +87,11 @@ export async function deleteCommentAction(formData: FormData) {
 
   // Revalidate and return to the previous URL if available
   revalidatePath("/calendar");
+  const hs = await headers();
   const back = hs.get("referer") ?? "/calendar?ok=1";
   redirect(back);
 }
+
 async function absUrl(path: string) {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
@@ -223,11 +220,13 @@ export default async function CalendarPage({
   const rangeUpcoming = monthRange(upMonth);
   const filters = { installIds, types, status, search };
 
-  const [inRangeCalendar, inRangeList, upcomingUndef] = await Promise.all([
+  const [inRangeCalendar, inRangeList, upcomingUndef, session] = await Promise.all([
     listEventsByDateRangeAndFilters(rangeCalendar, filters),
     listEventsByDateRangeAndFilters(rangeList, filters),
     listUpcomingUndefined({ installIds }), // TBD + future WINDOW (existing repo call)
+    getSession(),
   ]);
+
   function fmtDate(d?: string | Date | null): string {
     if (!d) return "";
     const iso = typeof d === "string" ? d : d.toISOString();
@@ -246,66 +245,34 @@ export default async function CalendarPage({
     }
     return false;
   });
+
   // Determine active tab once
   const activeTab = (firstStr(sp.tab) ?? "calendar") as
     | "calendar"
     | "list"
     | "upcoming";
-  const cookieStore = await cookies();
-  const signedIn = !!cookieStore.get("userId")?.value;
-  const userId = cookieStore.get("userId")?.value ?? null;
+
+  // ✅ Session-based signed-in state (no cookies)
+  const userId = session?.user?.id ?? null;
+  const signedIn = !!userId;
   const eventId = firstStr(sp.event) ?? null;
 
   return (
     <SiteShell current="calendar" title="Release Calendar">
       {ok && (
         <div
-          className={`rounded border px-3 py-2 text-sm ${ok === "1" ? "border-green-300 bg-green-50 text-green-800" : "border-red-300 bg-red-50 text-red-800"}`}
+          className={`rounded border px-3 py-2 text-sm ${
+            ok === "1"
+              ? "border-green-300 bg-green-50 text-green-800"
+              : "border-red-300 bg-red-50 text-red-800"
+          }`}
         >
           {ok === "1" ? "Success" : "Action failed"}
           {msg ? ` — ${decodeURIComponent(msg)}` : ""}
         </div>
       )}
-
       <EventDrawer eventId={eventId} sp={sp as any} />
-      {!userId && (
-        <section className="space-y-2 rounded border p-4">
-          <h2 className="text-lg font-medium">Set your name</h2>
-          <form action="/api/user/init" method="post" className="space-y-2">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="text-sm">
-                <span className="block">Name</span>
-                <input
-                  className="border px-2 py-1 w-full"
-                  name="name"
-                  type="text"
-                  placeholder="Your name"
-                  required
-                />
-              </label>
-              <label className="text-sm">
-                <span className="block">Email</span>
-                <input
-                  className="border px-2 py-1 w-full"
-                  name="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  required
-                />
-              </label>
-            </div>
-            <button
-              type="submit"
-              className="border px-3 py-1 rounded bg-blue-600 text-white"
-            >
-              Save
-            </button>
-          </form>
-          <p className="text-xs text-gray-600">
-            We’ll set a secure cookie on this device.
-          </p>
-        </section>
-      )}
+      {!userId && <CalendarSignInGate />}
 
       <div className="sticky top-14 z-20 bg-gray-50/80 backdrop-blur supports-backdrop-filter:bg-gray-50/60 border-b">
         <div className="w-[80%] mx-auto py-2">
@@ -317,10 +284,7 @@ export default async function CalendarPage({
       <div className="flex items-center justify-between">
         <Tabs />
         {/* Per-tab month switchers (Calendar uses its own RBC toolbar; we provide for List/Upcoming) */}
-        <div className="flex items-center gap-4">
-          {/* Only show the relevant month switcher based on tab via CSS; it's ok to show both too */}
-          {/* Events List month */}
-        </div>
+        <div className="flex items-center gap-4">{/* reserved */}</div>
       </div>
 
       {/* Tab: Calendar */}
@@ -356,7 +320,6 @@ export default async function CalendarPage({
       )}
 
       {/* Tab: Events List (Selected Month) */}
-
       {activeTab === "list" && (
         <section className="rounded-card border shadow-card bg-white p-4">
           <div className="flex items-center justify-between mb-2">
@@ -401,8 +364,7 @@ export default async function CalendarPage({
                     <td className="py-2 pr-4">{ev.dateType}</td>
                     <td className="py-2 pr-4">{fmtDate(ev.dateExact)}</td>
                     <td className="py-2 pr-4">
-                      {fmtDate(ev.dateStart)}{" "}
-                      {ev.dateStart || ev.dateEnd ? "—" : ""}{" "}
+                      {fmtDate(ev.dateStart)} {ev.dateStart || ev.dateEnd ? "—" : ""}{" "}
                       {fmtDate(ev.dateEnd)}
                     </td>
                     <td className="py-2 pr-4">
@@ -435,7 +397,6 @@ export default async function CalendarPage({
       )}
 
       {/* Tab: Upcoming (TBD / future WINDOW) */}
-
       {activeTab === "upcoming" && (
         <section className="rounded-card border shadow-card bg-white p-4">
           <div className="flex items-center justify-between mb-1">
@@ -513,8 +474,6 @@ export default async function CalendarPage({
 
 /** Installed Profiles (enabled only) with subscribe/unsubscribe buttons. */
 async function InstalledProfilesList({ signedIn }: { signedIn: boolean }) {
-  const base = process.env.NEXT_PUBLIC_BASE_URL!;
-
   const hs = await headers();
   const cookie = hs.get("cookie") ?? "";
 
@@ -589,7 +548,9 @@ async function InstalledProfilesList({ signedIn }: { signedIn: boolean }) {
                 />
                 <button
                   type="submit"
-                  className={`px-2 py-1 rounded border text-xs ${subscribed ? "bg-green-50" : "bg-white"}`}
+                  className={`px-2 py-1 rounded border text-xs ${
+                    subscribed ? "bg-green-50" : "bg-white"
+                  }`}
                   title={subscribed ? "Unsubscribe" : "Subscribe"}
                 >
                   {subscribed ? "Unsubscribe" : "Subscribe"}
@@ -597,7 +558,7 @@ async function InstalledProfilesList({ signedIn }: { signedIn: boolean }) {
               </form>
             ) : (
               <span className="text-xs text-gray-500">
-                Set your name above to subscribe
+                Sign in to subscribe
               </span>
             )}
           </li>
@@ -611,7 +572,6 @@ async function InstalledProfilesList({ signedIn }: { signedIn: boolean }) {
 }
 
 /** Per-event comments widget using UserNote.content via Pages API. */
-
 export async function EventComments({
   eventId,
   signedIn,
@@ -619,6 +579,7 @@ export async function EventComments({
   eventId: string;
   signedIn: boolean;
 }) {
+  // Forward session cookie to Pages API
   const baseRes = await fetch(await absUrl(`/api/events/${eventId}/comments`), {
     cache: "no-store",
     headers: { cookie: (await headers()).get("cookie") ?? "" },
@@ -630,15 +591,15 @@ export async function EventComments({
     user?: { id?: string; name?: string };
   }> = json.comments ?? [];
 
-  // Get current user id & role
-  const currentUserId = cookieStore.get("userId")?.value ?? null;
-  let isAdmin = false;
-  if (currentUserId) {
-    const u = await getUserById(currentUserId);
-    isAdmin = u?.role === "admin";
-  }
-  const visibleComments = isAdmin ? comments : currentUserId
-    ? comments.filter((c) => c.user?.id === currentUserId )
+  // ✅ Determine user + admin via session + DB (no cookies, no role checks)
+  const session = await getSession();
+  const currentUserId = session?.user?.id ?? null;
+  const isAdmin = currentUserId ? await isAdminByPrefs(currentUserId) : false;
+
+  const visibleComments = isAdmin
+    ? comments
+    : currentUserId
+    ? comments.filter((c) => c.user?.id === currentUserId)
     : [];
 
   return (
@@ -663,9 +624,7 @@ export async function EventComments({
           </button>
         </form>
       ) : (
-        <p className="text-xs text-gray-500">
-          Set your name above to add comments.
-        </p>
+        <p className="text-xs text-gray-500">Sign in to add comments.</p>
       )}
 
       {visibleComments.length === 0 ? (
@@ -683,7 +642,9 @@ export async function EventComments({
                 className="text-xs flex items-start justify-between gap-2"
               >
                 <div className="flex-1">
-                  <span className="font-medium">{c.user?.name ?? "User"}</span>{" "}
+                  <span className="font-medium">
+                    {c.user?.name ?? "User"}
+                  </span>{" "}
                   <span className="text-gray-700">— {c.content}</span>
                 </div>
 

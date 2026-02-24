@@ -1,10 +1,10 @@
 
-import { auth } from "app/auth";
+import { getSession } from "app/auth";
 import { isAdminByPrefs } from "app/data/prismaRepo";
 import DbCrudClient from "./db/DbCrudClient";
 
 export default async function SystemTab() {
-  const session = await auth();
+  const session = await getSession();
   const userId = session?.user?.id;
   const isAdmin = userId ? await isAdminByPrefs(userId) : false;
 
