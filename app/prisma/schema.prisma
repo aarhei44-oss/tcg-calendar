@@ -125,6 +125,7 @@ model ProductSet {
   updatedAt           DateTime @updatedAt
 
   install       TcgProfileInstall @relation(fields: [tcgProfileInstallId], references: [id], onDelete: Cascade)
+  @@unique([tcgProfileInstallId, code], name: "install_set_code")
   releaseEvents ReleaseEvent[]
 }
 
@@ -230,8 +231,8 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  session Session?
-  account Account?
+  account Account[]
+  session Session[]
   notes UserNote[]
 }
 
@@ -265,7 +266,7 @@ model JobLock {
 /// --- Auth tables for NextAuth (Prisma Adapter) ---
 model Account {
   id                String  @id @default(cuid())
-  userId            String  @unique
+  userId            String 
   type              String
   provider          String
   providerAccountId String
@@ -285,7 +286,7 @@ model Account {
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
-  userId       String   @unique
+  userId       String   
   expires      DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

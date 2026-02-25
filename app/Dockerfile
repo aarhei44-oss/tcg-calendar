@@ -36,7 +36,6 @@ RUN npm run prisma:generate
 # Build Next.js
 RUN npm run build
 
-
 ############################################
 # Stage 3: runner (production)
 ############################################
@@ -51,17 +50,16 @@ ENV DATABASE_URL=file:../data/app.db
 # --- Seed-on-boot defaults (can override at docker run) ---
 ENV SEED_ON_BOOT=true
 ENV SEED_INSTALLS=default
-ENV SEED_OPTIONS='{"seed":true}'
+ENV SEED_OPTIONS='{}'
 
 # OS deps for Prisma at runtime (silence libssl warnings) + curl for seed HTTP call
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl curl && rm -rf /var/lib/apt/lists/*
 
-# Install runtime deps (keep dev so prisma CLI & tsx can run in entrypoint)
+# Install runtime deps
 COPY --from=build /app/package*.json /app/
 RUN npm ci
 
 # --- Fallback: ensure Prisma 7 in the runner as well (lockfile may pin 6.x) ---
-# You can remove this block once your lockfile is updated to Prisma 7 in the repo.
 RUN node -e "try{const v=require('./node_modules/prisma/package.json').version; if(!/^7\\./.test(v)) process.exit(1)}catch(e){process.exit(1)}" || \
     (echo 'Forcing Prisma 7.4.0 for runtime (lockfile has 6.x)' && \
      npm i -D prisma@7.4.0 && npm i @prisma/client@7.4.0)

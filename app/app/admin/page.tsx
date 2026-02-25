@@ -10,6 +10,8 @@ import AdminTabs from "./AdminTabs";
 import DbCrudClient from "./db/DbCrudClient";
 import { getSession } from "app/auth";
 import { isAdminByPrefs } from "app/data/prismaRepo";
+import SystemTab from "./SystemTab";
+
 
 // ---- Helpers ----
 async function getInstalls() {
@@ -97,6 +99,16 @@ export default async function AdminPage({
   const session = await getSession();
   const userId = session?.user?.id;
   const isAdmin = userId ? await isAdminByPrefs(userId) : false;
+
+  if (!session?.user?.id) {
+    // Auth required
+    redirect("/api/auth/signin");
+  }
+
+  if (!isAdmin) {
+    // Hide existence from non-admins
+    return 404;
+  }
 
   return (
     <SiteShell current="admin" title="Admin">

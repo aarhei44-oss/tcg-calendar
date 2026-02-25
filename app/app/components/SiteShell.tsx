@@ -1,8 +1,11 @@
 // /app/app/components/SiteShell.tsx
 import React from "react";
 import Link from "next/link";
+import { getSession } from "app/auth"; // adjust if your path differs
+import { isAdminByPrefs } from "app/data/prismaRepo";
 
-export default function SiteShell({
+
+export default async function SiteShell({
   children,
   current,
   title = "Release Calendar",
@@ -11,6 +14,12 @@ export default function SiteShell({
   current?: "calendar" | "subscriptions" | "admin";
   title?: string;
 }) {
+  
+
+  const session = await getSession();
+  const userId = session?.user?.id;
+  const isAdmin = userId ? await isAdminByPrefs(userId) : false;
+
   return (
     <div className="min-h-screen grid grid-cols-[240px_1fr] grid-rows-[56px_1fr]">
       {/* Left nav */}
@@ -29,7 +38,7 @@ export default function SiteShell({
             label="Subscriptions"
             active={current === "subscriptions"}
           />
-          <NavItem href="/admin" label="Admin" active={current === "admin"} />
+          <NavItem href="/admin" label="Admin" active={isAdmin} />
         </nav>
         <div className="mt-auto px-4 py-4 text-xs text-gray-900">
           <p>v0.1 • auto theme</p>

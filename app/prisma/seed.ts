@@ -195,7 +195,7 @@ async function resetDatabase(): Promise<void> {
   await prisma.$executeRawUnsafe("PRAGMA foreign_keys = ON;");
 }
 
-async function upsertPackagesAndInstalls() {
+export async function upsertPackagesAndInstalls() {
   const createdInstalls: { id: string; packageId: string; slug: string }[] = [];
 
   for (const p of TCG_PACKAGES) {
@@ -518,65 +518,106 @@ async function seedDiscoveryHits(installs: { id: string }[], rng: RNG) {
 export async function enableProfilesAndSeedData(params: {
   installs: { id: string; slug?: string }[];
   seed?: number;
+  fresh?: boolean; // allow caller (e.g., Docker) to force a clean reseed
 }) {
   const rng = createRng(params.seed ?? 1337);
 
   for (const instRef of params.installs) {
+    // Ensure install exists
+    const pre = await prisma.tcgProfileInstall.findUnique({
+      where: { id: instRef.id },
+      select: { id: true, packageId: true },
+    });
+    if (!pre) {
+      throw new Error(
+        `Seed error: install not found for id="${instRef.id}". Run package+install bootstrap first.`,
+      );
+    }
+
+    // Ensure enabled (idempotent)
     const install = await prisma.tcgProfileInstall.update({
       where: { id: instRef.id },
       data: { enabled: true },
+      select: { id: true, packageId: true },
     });
-
-    // If sets already exist, skip generating for idempotency
-    const existingSets = await prisma.productSet.findMany({
-      where: { tcgProfileInstallId: install.id },
-      take: 1,
-    });
-    if (existingSets.length > 0) continue;
 
     const pkg = await prisma.tcgProfilePackage.findUnique({
       where: { id: install.packageId },
+      select: { slug: true },
     });
     const slug = instRef.slug ?? pkg?.slug ?? "tcg";
 
-    // Create 4–6 product sets
-    const setCount = randInt(rng, 4, 6);
-    const sets: string[] = [];
-    for (let sIdx = 1; sIdx <= setCount; sIdx++) {
-      const code = makeSetCode(slug, sIdx);
-      const set = await prisma.productSet.create({
-        data: {
-          tcgProfileInstallId: install.id,
-          code,
-          name: `${slug.replace(/-/g, " ")} Set ${sIdx}`,
-          releaseQuarter: `Q${((sIdx - 1) % 4) + 1}`,
-          meta: { seeded: true },
-        },
-      });
-      sets.push(set.id);
-    }
-
-    // For each set, create 1–3 release events with the required dateType mix
-    for (const setId of sets) {
-      const eventCount = randInt(rng, 1, 3);
-      for (let eIdx = 0; eIdx < eventCount; eIdx++) {
-        const eventInput = makeRandomReleaseEvent(rng, setId);
-
-        // Create event
-        const event = await prisma.releaseEvent.create({ data: eventInput });
-
-        // Occasionally mark as delayed (adds some variety)
-        if (Math.random() < 0.15 && event.status !== "canceled") {
-          await prisma.releaseEvent.update({
-            where: { id: event.id },
-            data: { status: ReleaseStatus.delayed },
+    // Optional FRESH: wipe prior seeded data for this install
+    if (params.fresh) {
+      await prisma.$transaction(async (tx) => {
+        const setIds = await tx.productSet.findMany({
+          where: { tcgProfileInstallId: install.id },
+          select: { id: true },
+        });
+        const ids = setIds.map((s) => s.id);
+        if (ids.length) {
+          await tx.sourceClaim.deleteMany({
+            where: { releaseEvent: { productSetId: { in: ids } } },
+          });
+          await tx.releaseEvent.deleteMany({
+            where: { productSetId: { in: ids } },
           });
         }
-
-        // 1–3 source claims per event (with a few conflicts)
-        await createSourceClaimsForEvent(rng, event.id, eventInput);
-      }
+        await tx.productSet.deleteMany({
+          where: { tcgProfileInstallId: install.id },
+        });
+      });
     }
+
+    // Seed sets & events deterministically each run (no duplicates if fresh=true)
+    await prisma.$transaction(async (tx) => {
+      const setCount = randInt(rng, 4, 6);
+
+      for (let sIdx = 1; sIdx <= setCount; sIdx++) {
+        const code = makeSetCode(slug, sIdx);
+
+        // Use upsert on (installId, code).
+        // REQUIREMENT: Prisma schema has @@unique([tcgProfileInstallId, code], name: "install_set_code")
+        const set = await tx.productSet.upsert({
+          where: {
+            install_set_code: { tcgProfileInstallId: install.id, code },
+          } as any,
+          update: {
+            name: `${slug.replace(/-/g, " ")} Set ${sIdx}`,
+            releaseQuarter: `Q${((sIdx - 1) % 4) + 1}`,
+            meta: { seeded: true },
+          },
+          create: {
+            tcgProfileInstallId: install.id,
+            code,
+            name: `${slug.replace(/-/g, " ")} Set ${sIdx}`,
+            releaseQuarter: `Q${((sIdx - 1) % 4) + 1}`,
+            meta: { seeded: true },
+          },
+          select: { id: true },
+        });
+
+        // For each set, create 1–3 events
+        const eventCount = randInt(rng, 1, 3);
+        for (let eIdx = 1; eIdx <= eventCount; eIdx++) {
+          const eventInput = makeRandomReleaseEvent(rng, set.id);
+
+          const event = await tx.releaseEvent.create({ data: eventInput });
+
+          // Deterministic delay chance (use rng, not Math.random)
+          const delayChance = rng();
+          if (delayChance < 0.15 && event.status !== "canceled") {
+            await tx.releaseEvent.update({
+              where: { id: event.id },
+              data: { status: ReleaseStatus.delayed },
+            });
+          }
+
+          // Source claims — current helper (non-idempotent) is fine because we use `fresh`
+          await createSourceClaimsForEvent(rng, event.id, eventInput);
+        }
+      }
+    });
   }
 }
 

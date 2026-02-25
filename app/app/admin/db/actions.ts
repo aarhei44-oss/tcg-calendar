@@ -25,12 +25,13 @@ function modelHasId(model: string) {
   return !!m?.fields.find((f) => f.name === "id");
 }
 
-async function ensureAdmin() {
+export async function ensureAdmin(): Promise<string> {
   const session = await getSession();
   const userId = session?.user?.id;
-  if (!userId || !(await isAdminByPrefs(userId))) {
-    throw new Error("Not authorized");
-  }
+  if (!userId) throw new Error("Unauthorized");
+  const isAdmin = await isAdminByPrefs(userId);
+  if (!isAdmin) throw new Error("Forbidden");
+  return userId;
 }
 
 export async function listRows(model: string, take = 25) {
