@@ -46,6 +46,13 @@ export default function ClientCalendar({
   const router = useRouter();
   const sp = useSearchParams();
 
+  function pushWithEvent(id: string) {
+    const qp = new URLSearchParams(sp?.toString() ?? "");
+    qp.set("event", id);
+    // keep existing filters/ym/tab intact
+    router.push(`/calendar?${qp.toString()}`);
+  }
+
   // Preserve existing filter search params when navigating months
   const keepFilters = useCallback(
     (ym: string) => {
@@ -123,6 +130,9 @@ export default function ClientCalendar({
         components={components}
         style={{ height: 650 }}
         eventPropGetter={eventStyleGetter}
+        onSelectEvent={(evt: any) => {
+          if (evt?.id) pushWithEvent(String(evt.id));
+        }}
       />
     </div>
   );
