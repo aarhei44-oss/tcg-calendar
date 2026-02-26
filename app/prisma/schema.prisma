@@ -224,24 +224,15 @@ model User {
   id          String   @id @unique @default(cuid())
   email       String   @unique
   name        String
-<<<<<<< HEAD
   image       String?
   emailVerified Boolean?
-=======
-  image       String
->>>>>>> 3ed7b76 (working on implementing complete oauth2 through google. currently non-functional)
   role        UserRole @default(admin)
   preferences Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-<<<<<<< HEAD
   account Account[]
   session Session[]
-=======
-  session Session?
-  account Account?
->>>>>>> 3ed7b76 (working on implementing complete oauth2 through google. currently non-functional)
   notes UserNote[]
 }
 
@@ -275,11 +266,7 @@ model JobLock {
 /// --- Auth tables for NextAuth (Prisma Adapter) ---
 model Account {
   id                String  @id @default(cuid())
-<<<<<<< HEAD
   userId            String 
-=======
-  userId            String  @unique
->>>>>>> 3ed7b76 (working on implementing complete oauth2 through google. currently non-functional)
   type              String
   provider          String
   providerAccountId String
@@ -299,11 +286,7 @@ model Account {
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
-<<<<<<< HEAD
   userId       String   
-=======
-  userId       String   @unique
->>>>>>> 3ed7b76 (working on implementing complete oauth2 through google. currently non-functional)
   expires      DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
