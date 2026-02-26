@@ -38,7 +38,7 @@ export default async function SiteShell({
             label="Subscriptions"
             active={current === "subscriptions"}
           />
-          <NavItem href="/admin" label="Admin" active={isAdmin} />
+          <NavItem href="/admin" label="Admin"  />
         </nav>
         <div className="mt-auto px-4 py-4 text-xs text-gray-900">
           <p>v0.1 • auto theme</p>

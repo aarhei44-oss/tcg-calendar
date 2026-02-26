@@ -6,6 +6,7 @@ import DbCrudClient from "./db/DbCrudClient";
 export default async function SystemTab() {
   const session = await getSession();
   const userId = session?.user?.id;
+  console.log("Systemtab.tsx - " + session?.user.name + ': '+ session?.user.email );
   const isAdmin = userId ? await isAdminByPrefs(userId) : false;
 
   if (!isAdmin) {

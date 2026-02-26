@@ -516,7 +516,7 @@ async function seedDiscoveryHits(installs: { id: string }[], rng: RNG) {
 // ------------------------------
 
 export async function enableProfilesAndSeedData(params: {
-  installs: { id: string; slug?: string }[];
+  installs: { id: string; packageId:string, slug: string }[];
   seed?: number;
   fresh?: boolean; // allow caller (e.g., Docker) to force a clean reseed
 }) {
@@ -637,7 +637,8 @@ async function main() {
   }
 
   // Packages & installs (disabled by default)
-  const installs = await upsertPackagesAndInstalls();
+  const installs: { id: string; packageId: string; slug: string }[] = await upsertPackagesAndInstalls();
+  const packages = enableProfilesAndSeedData({installs,seed:undefined,fresh:isFresh});
 
   // Discovery hits + scan history (simulated)
   const rng = createRng(20260218);

@@ -8,7 +8,6 @@ export default async function handler(
   res: NextApiResponse,
 ) {
 
-  await requireAdmin(req, res);
 
   if (req.method !== "GET") {
     res.setHeader("Allow", ["GET"]);

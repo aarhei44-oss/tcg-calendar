@@ -90,7 +90,6 @@ export default async function AdminPage({
   const sp = (searchParams ? await searchParams : undefined) ?? {};
   const ok = Array.isArray(sp.ok) ? sp.ok[0] : sp.ok;
   const msg = Array.isArray(sp.msg) ? sp.msg[0] : sp.msg;
-
   const installs = await getInstalls();
   const adminTab =
     (Array.isArray(sp.adminTab) ? sp.adminTab[0] : sp.adminTab) ?? "profiles";
@@ -296,7 +295,8 @@ export default async function AdminPage({
             </ul>
 
             {/* Admin-only DB Tools */}
-            {!isAdmin ? (
+            {!isAdmin ? 
+            (
               <p className="text-sm text-red-600">Not authorized to access DB Tools.</p>
             ) : (
               <div className="rounded border p-4">

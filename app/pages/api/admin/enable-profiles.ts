@@ -59,7 +59,7 @@ export default async function handler(
     }
 
     // Normalize to { id, slug? }[]
-    const installs: { id: string; slug?: string }[] = installsInput.map(
+    const installs: { id: string; packageId:string; slug: string }[] = installsInput.map(
       (it: any) => {
         if (typeof it === "string") return { id: it };
         if (it && typeof it.id === "string") return { id: it.id, slug: it.slug };
