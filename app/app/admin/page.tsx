@@ -4,14 +4,15 @@ import React from "react";
 import SiteShell from "../components/SiteShell";
 import { prisma } from "app/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { headers } from "next/headers";
 import AdminTabs from "./AdminTabs";
 import DbCrudClient from "./db/DbCrudClient";
 import { getSession } from "app/auth";
 import { isAdminByPrefs } from "app/data/prismaRepo";
+import UsersTab from "./UsersTab";
 import SystemTab from "./SystemTab";
-
+import { ensureAdmin } from "./db/actions";
 
 // ---- Helpers ----
 async function getInstalls() {
@@ -30,6 +31,7 @@ async function getInstalls() {
 
 // Build absolute URL for calling Pages API (bulk seed)
 async function absUrl(path: string) {
+  // headers() is sync, but keeping function async is fine since we await it above.
   const hs = await headers();
   const host = hs.get("x-forwarded-host") ?? hs.get("host") ?? "localhost:3000";
   const proto =
@@ -38,9 +40,11 @@ async function absUrl(path: string) {
   return `${proto}://${host}${path}`;
 }
 
-// ---- Server actions ----
+// ---- Server actions (admin-only) ----
 export async function toggleInstallEnabled(formData: FormData) {
   "use server";
+  await ensureAdmin();
+
   const id = String(formData.get("id") ?? "");
   const enabled = String(formData.get("enabled") ?? "") === "true";
   if (!id) redirect("/admin?ok=0&msg=missing%20id");
@@ -56,23 +60,27 @@ export async function toggleInstallEnabled(formData: FormData) {
 
 export async function enableAndSeedSelected(formData: FormData) {
   "use server";
+  await ensureAdmin();
+
   const selectedIds = formData.getAll("install").map(String).filter(Boolean);
   const seed = formData.get("seed") === "on";
 
-  if (selectedIds.length === 0)
+  if (selectedIds.length === 0) {
     redirect("/admin?ok=0&msg=No%20installs%20selected");
+  }
 
   const url = await absUrl("/api/admin/enable-profiles");
   const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     cache: "no-store",
-    body: JSON.stringify({ installs: selectedIds, seed }),
+    // NOTE: matches your updated handler: { installs, options: { seed } }
+    body: JSON.stringify({ installs: selectedIds, options: { seed } }),
   });
 
   if (!res.ok) {
     const msg = encodeURIComponent(
-      `Enable & seed failed: ${res.status} ${await res.text()}`
+      `Enable & seed failed: ${res.status} ${await res.text()}`,
     );
     redirect(`/admin?ok=0&msg=${msg}`);
   }
@@ -85,37 +93,37 @@ export async function enableAndSeedSelected(formData: FormData) {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams?: Promise<Record<string, string | string[]>>;
+  // NOTE: In Next.js 15/16, searchParams is a Promise in server components
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const sp = (searchParams ? await searchParams : undefined) ?? {};
+  // ✅ Await searchParams before using
+  const sp = await searchParams;
   const ok = Array.isArray(sp.ok) ? sp.ok[0] : sp.ok;
   const msg = Array.isArray(sp.msg) ? sp.msg[0] : sp.msg;
-  const installs = await getInstalls();
   const adminTab =
     (Array.isArray(sp.adminTab) ? sp.adminTab[0] : sp.adminTab) ?? "profiles";
 
-  // Admin guard for System tools (and optionally for the whole page if you prefer)
+  // Admin guard for the entire Admin area
   const session = await getSession();
-  const userId = session?.user?.id;
-  const isAdmin = userId ? await isAdminByPrefs(userId) : false;
-
   if (!session?.user?.id) {
-    // Auth required
     redirect("/api/auth/signin");
   }
-
+  const isAdmin = await isAdminByPrefs(session.user.id);
   if (!isAdmin) {
-    // Hide existence from non-admins
-    return 404;
+    notFound(); // Hide existence from non-admins (MVP policy)
   }
+
+  // Data only loaded for profiles tab
+  const installs = adminTab === "profiles" ? await getInstalls() : [];
 
   return (
     <SiteShell current="admin" title="Admin">
       <div className="flex items-center justify-between">
         <AdminTabs />
-        {/* (Optional) add admin quick actions here */}
+        {/* (Optional) admin quick actions */}
       </div>
 
+      {/* Feedback banner */}
       <section className="rounded-card border shadow-card bg-white p-4">
         {ok && (
           <div
@@ -130,18 +138,16 @@ export default async function AdminPage({
           </div>
         )}
 
+        {/* PROFILES TAB */}
         {adminTab === "profiles" && (
-          <div>
-            {/* Bulk actions */}
+          <div className="space-y-4">
             <section className="rounded-card border shadow-card bg-white p-4 space-y-3">
               <h2 className="text-lg font-semibold">Bulk actions</h2>
-              {/* Instruction row */}
               <p className="text-sm text-gray-600">
                 Select installs in the table below, then click{" "}
                 <strong>Enable &amp; Seed Selected</strong>.
               </p>
 
-              {/* Visible control form (checkboxes live in the table, linked via form attribute) */}
               <form
                 action={enableAndSeedSelected}
                 id="bulk-enable-seed-form"
@@ -155,9 +161,7 @@ export default async function AdminPage({
                     defaultChecked
                     className="h-4 w-4"
                   />
-                  <span>
-                    Also generate sample product sets &amp; release events (seed)
-                  </span>
+                  <span>Also generate sample product sets &amp; release events (seed)</span>
                 </label>
 
                 <button
@@ -169,13 +173,10 @@ export default async function AdminPage({
               </form>
             </section>
 
-            {/* Installs table */}
             <section className="rounded-card border shadow-card bg-white p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-semibold">TcgProfileInstalls</h2>
-                <div className="text-sm text-storm-600">
-                  {installs.length} total
-                </div>
+                <div className="text-sm text-storm-600">{installs.length} total</div>
               </div>
 
               <div className="overflow-auto">
@@ -203,45 +204,28 @@ export default async function AdminPage({
                         </td>
                         <td className="py-2 px-3 align-middle">
                           <div className="font-medium">{row.packageId}</div>
-                          <div className="text-xs text-gray-500">
-                            id {row.id.slice(0, 8)}…
-                          </div>
+                          <div className="text-xs text-gray-500">id {row.id.slice(0, 8)}…</div>
                         </td>
                         <td className="py-2 px-3 align-middle">
-                          <span className="text-xs text-gray-600">
-                            {row.installedVersion}
-                          </span>
+                          <span className="text-xs text-gray-600">{row.installedVersion}</span>
                         </td>
                         <td className="py-2 px-3 align-middle">
                           <span
                             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${
-                              row.enabled
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-700"
+                              row.enabled ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"
                             }`}
                           >
                             {row.enabled ? "Enabled" : "Disabled"}
                           </span>
                         </td>
                         <td className="py-2 px-3 align-middle">
-                          <form
-                            action={toggleInstallEnabled}
-                            className="inline-flex items-center gap-2"
-                          >
+                          <form action={toggleInstallEnabled} className="inline-flex items-center gap-2">
                             <input type="hidden" name="id" value={row.id} />
-                            <input
-                              type="hidden"
-                              name="enabled"
-                              value={row.enabled ? "false" : "true"}
-                            />
+                            <input type="hidden" name="enabled" value={row.enabled ? "false" : "true"} />
                             <button
                               type="submit"
                               className="px-2 py-1 rounded border text-xs hover:bg-gray-50"
-                              title={
-                                row.enabled
-                                  ? "Disable install"
-                                  : "Enable install"
-                              }
+                              title={row.enabled ? "Disable install" : "Enable install"}
                             >
                               {row.enabled ? "Disable" : "Enable"}
                             </button>
@@ -251,10 +235,7 @@ export default async function AdminPage({
                     ))}
                     {installs.length === 0 && (
                       <tr>
-                        <td
-                          className="py-6 px-3 text-center text-gray-500"
-                          colSpan={5}
-                        >
+                        <td className="py-6 px-3 text-center text-gray-500" colSpan={5}>
                           No installs found.
                         </td>
                       </tr>
@@ -266,48 +247,12 @@ export default async function AdminPage({
           </div>
         )}
 
-        {adminTab === "users" && (
-          <section className="rounded-card border shadow-card bg-white p-4">
-            <h2 className="text-lg font-semibold">Users</h2>
-            <p className="text-sm text-gray-600">
-              Coming soon: basic user management (list, roles,
-              deactivate/reactivate).
-            </p>
-          </section>
-        )}
+        {/* USERS TAB */}
+        {adminTab === "users" && <UsersTab />}
 
-        {adminTab === "system" && (
-          <section className="rounded-card border shadow-card bg-white p-4 space-y-4">
-            <h2 className="text-lg font-semibold">System</h2>
-            <ul className="text-sm list-disc pl-5 text-gray-700">
-              <li>
-                Health:{" "}
-                <a href="/api/health/check" className="text-blue-600 hover:underline">
-                  /api/health/check
-                </a>
-              </li>
-              <li>
-                DB: SQLite at{" "}
-                <code className="text-gray-500">/app/data/app.db</code>{" "}
-                (volume‑mapped)
-              </li>
-              <li>Runtime: Node 20 (Docker), Prisma v7 (better‑sqlite3)</li>
-            </ul>
-
-            {/* Admin-only DB Tools */}
-            {!isAdmin ? 
-            (
-              <p className="text-sm text-red-600">Not authorized to access DB Tools.</p>
-            ) : (
-              <div className="rounded border p-4">
-                <h3 className="font-semibold mb-2">DB Tools (whitelisted models)</h3>
-                <DbCrudClient />
-              </div>
-            )}
-          </section>
-        )}
+        {/* SYSTEM TAB */}
+        {adminTab === "system" && <SystemTab />}
       </section>
     </SiteShell>
   );
 }
-

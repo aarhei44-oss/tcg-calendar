@@ -230,6 +230,7 @@ model User {
   preferences Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  active      Boolean  @default(true)
 
   account Account[]
   session Session[]

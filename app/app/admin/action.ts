@@ -7,9 +7,4 @@
 // with selected install IDs and optional parameters.
 
 
-import { enableProfilesAndSeedData } from '../data/prismaRepo';
 
-export async function adminEnableProfiles(installs: string[], options?: unknown) {
-  await enableProfilesAndSeedData(installs, options);
-  return { ok: true };
-}
