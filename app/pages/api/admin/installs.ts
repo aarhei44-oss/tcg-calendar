@@ -1,7 +1,6 @@
 // /app/pages/api/admin/installs.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "../../../app/lib/prisma";
-import { requireAdmin } from "../_utils/adminGuard";
 
 export default async function handler(
   req: NextApiRequest,

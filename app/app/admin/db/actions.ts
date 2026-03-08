@@ -4,7 +4,16 @@ import { prisma } from "app/lib/prisma";
 import { isAdminByPrefs } from "app/data/prismaRepo";
 import { getSession } from "app/auth";
 import { Prisma } from "@prisma/client";
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
+import { enableProfilesAndSeedData } from '../../data/prismaRepo';
+
+export async function adminEnableProfiles(installs: string[], options?: unknown) {
+  await enableProfilesAndSeedData(installs, options);
+  return { ok: true };
+}
 function modelToDelegateKey(model: string) {
   return model.slice(0, 1).toLowerCase() + model.slice(1);
 }
@@ -70,4 +79,60 @@ export async function deleteRow(model: string, where: any) {
   }
   const delegate = getDelegate(model);
   return (await delegate.delete({ where })) as any;
+}
+
+/** Build absolute URL for calling Pages API (bulk seed) */
+async function absUrl(path: string) {
+  const hs = await headers();
+  const host = hs.get("x-forwarded-host") ?? hs.get("host") ?? "localhost:3000";
+  const proto =
+    hs.get("x-forwarded-proto") ??
+    (process.env.NODE_ENV === "production" ? "https" : "http");
+  return `${proto}://${host}${path}`;
+}
+
+export async function toggleInstallEnabled(formData: FormData) {
+  await ensureAdmin();
+
+  const id = String(formData.get("id") ?? "");
+  const enabled = String(formData.get("enabled") ?? "") === "true";
+  if (!id) redirect("/admin?ok=0&msg=missing%20id");
+
+  await prisma.tcgProfileInstall.update({
+    where: { id },
+    data: { enabled },
+  });
+
+  revalidatePath("/admin");
+  redirect("/admin?ok=1");
+}
+
+export async function enableAndSeedSelected(formData: FormData) {
+  await ensureAdmin();
+
+  const selectedIds = formData.getAll("install").map(String).filter(Boolean);
+  const seed = formData.get("seed") === "on";
+
+  if (selectedIds.length === 0) {
+    redirect("/admin?ok=0&msg=No%20installs%20selected");
+  }
+
+  const url = await absUrl("/api/admin/enable-profiles");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    cache: "no-store",
+    // NOTE: matches your handler: { installs, options: { seed } }
+    body: JSON.stringify({ installs: selectedIds, options: { seed } }),
+  });
+
+  if (!res.ok) {
+    const msg = encodeURIComponent(
+      `Enable & seed failed: ${res.status} ${await res.text()}`
+    );
+    redirect(`/admin?ok=0&msg=${msg}`);
+  }
+
+  revalidatePath("/admin");
+  redirect("/admin?ok=1");
 }

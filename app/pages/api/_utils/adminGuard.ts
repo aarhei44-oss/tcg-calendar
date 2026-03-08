@@ -1,21 +1,39 @@
 
 // /app/pages/api/_utils/adminGuard.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import  getServerSession  from "next-auth";
-import { authOptions } from "app/auth"; // your single source options
-import { isAdminByPrefs } from "app/data/prismaRepo"; // or "@/app/auth" if exported there
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../../app/auth";
+import { isAdminByPrefs } from "../../../app/data/prismaRepo";
 
-export async function requireAdmin(req: NextApiRequest, res: NextApiResponse): Promise<{ userId: string }> {
-  const session = await getServerSession(req, res, authOptions as any);console.log("authOptions type:", typeof authOptions, "keys:", Object.keys(authOptions || {}));
-  const userId = session?.user?.id as string | undefined;
-  if (!userId) {
-    res.status(401).json({ ok: false, error: "Unauthorized" });
-    throw new Error("Unauthorized");
+/**
+ * Helper to enforce admin for Pages API routes.
+ * Returns the userId if admin, otherwise responds with 401/403 and returns null.
+ */
+export default async function requireAdmin(
+  req: NextApiRequest,
+  res: NextApiResponse
+): Promise<string | null> {
+  const session = await getServerSession(req, res, authOptions);
+
+  if (!session?.user?.id) {
+    res.status(401).json({ error: "Unauthorized" });
+    return null;
   }
-  const admin = await isAdminByPrefs(userId);
-  if (!admin) {
-    res.status(403).json({ ok: false, error: "Forbidden" });
-    throw new Error("Forbidden");
+
+  const isAdmin = await isAdminByPrefs(session.user.id);
+  if (!isAdmin) {
+    res.status(403).json({ error: "Forbidden" });
+    return null;
   }
-  return { userId };
+
+  return session.user.id;
+}
+
+/**
+ * (Optional) Bypass for container entrypoint seeding via internal header.
+ * Only use if you explicitly enable an internal bypass.
+ */
+export function isBypassAdmin(req: NextApiRequest): boolean {
+  const header = req.headers["x-admin-bypass"];
+  return typeof header === "string" && header === process.env.ADMIN_BYPASS_TOKEN;
 }
