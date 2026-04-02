@@ -55,6 +55,11 @@ export default async function SubscriptionsPage({
   const ok = Array.isArray(sp.ok) ? sp.ok[0] : sp.ok;
   const msg = Array.isArray(sp.msg) ? sp.msg[0] : sp.msg;
 
+  const upcomingSearch = Array.isArray(sp.upcomingSearch) ? sp.upcomingSearch[0] : sp.upcomingSearch;
+  const upcomingType = Array.isArray(sp.upcomingType) ? sp.upcomingType[0] : sp.upcomingType;
+  const upcomingStatus = Array.isArray(sp.upcomingStatus) ? sp.upcomingStatus[0] : sp.upcomingStatus;
+  const upcomingSort = Array.isArray(sp.upcomingSort) ? sp.upcomingSort[0] : sp.upcomingSort;
+
   // ✅ Session identity (no cookies)
   const session = await getSession();
   const userId = session?.user?.id ?? null;
@@ -85,12 +90,28 @@ export default async function SubscriptionsPage({
   const [installs, subs] = await Promise.all([
     prisma.tcgProfileInstall.findMany({
       where: { enabled: true },
-      select: { id: true, packageId: true, enabled: true },
+      select: {
+        id: true,
+        packageId: true,
+        enabled: true,
+        package: {
+          select: { name: true },
+        },
+      },
       orderBy: { packageId: "asc" },
     }),
     getUserSubscriptions(userId),
   ]);
   const subscribed = new Set<string>(subs);
+
+  const orderedInstalls = installs
+    .slice()
+    .sort((a, b) => {
+      const aSub = subscribed.has(a.id) ? 1 : 0;
+      const bSub = subscribed.has(b.id) ? 1 : 0;
+      if (aSub !== bSub) return bSub - aSub;
+      return a.packageId.localeCompare(b.packageId);
+    });
 
   // Compute upcoming events for next 30 days, filtered to subscribed installIds
   const now = new Date();
@@ -103,6 +124,29 @@ export default async function SubscriptionsPage({
       installIds,
     });
   }
+
+  // Local filtering + sorting for upcoming events grid
+  const upcomingFiltered = upcoming.filter((ev) => {
+    const matchesSearch = upcomingSearch
+      ? (ev.productSet?.name ?? "")
+          .toLowerCase()
+          .includes(String(upcomingSearch).toLowerCase())
+      : true;
+    const matchesType = upcomingType ? ev.type === upcomingType : true;
+    const matchesStatus = upcomingStatus ? ev.status === upcomingStatus : true;
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
+  const upcomingSorted = [...upcomingFiltered].sort((a, b) => {
+    if (upcomingSort === "status") return String(a.status).localeCompare(String(b.status));
+    if (upcomingSort === "type") return String(a.type).localeCompare(String(b.type));
+    if (upcomingSort === "name")
+      return String(a.productSet?.name ?? "").localeCompare(String(b.productSet?.name ?? ""));
+    // default date ascending
+    const aDate = a.dateExact ? new Date(a.dateExact).getTime() : 0;
+    const bDate = b.dateExact ? new Date(b.dateExact).getTime() : 0;
+    return upcomingSort === "dateDesc" ? bDate - aDate : aDate - bDate;
+  });
 
   return (
     <SiteShell current="subscriptions" title="Subscriptions">
@@ -119,29 +163,34 @@ export default async function SubscriptionsPage({
         </div>
       )}
 
-      <section className="rounded-card border shadow-card bg-white p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Your Subscriptions</h2>
-          <div className="text-sm text-storm-600">
-            {subscribed.size} selected
-          </div>
-        </div>
+      <details className="rounded-card border shadow-card bg-white overflow-hidden mb-4">
+        <summary className="cursor-pointer border-b border-slate-200 bg-slate-50 px-4 py-2 font-semibold">
+          Your Subscriptions (click to expand)
+        </summary>
+        <div className="space-y-4 p-4">
+          <section className="rounded-card border shadow-card bg-white p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">Your Subscriptions</h2>
+              <div className="text-sm text-storm-600">{subscribed.size} selected</div>
+            </div>
 
-        <div className="divide-y">
+            <div className="max-h-80 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-2">
           {installs.length === 0 && (
             <div className="py-4 text-sm text-gray-500">
               No enabled installs are available.
             </div>
           )}
-          {installs.map((i) => {
+          {orderedInstalls.map((i) => {
             const isSub = subscribed.has(i.id);
             return (
               <div
                 key={i.id}
-                className="py-3 flex items-center justify-between"
+                className="py-3 flex items-center justify-between border-b border-slate-300 last:border-b-0"
               >
                 <div>
-                  <div className="font-medium">{i.packageId}</div>
+                  <div className="font-medium">
+                    {i.package?.name ?? i.packageId}
+                  </div>
                   <div className="text-xs text-gray-500">
                     install {i.id.slice(0, 8)}…
                   </div>
@@ -160,7 +209,7 @@ export default async function SubscriptionsPage({
                     type="submit"
                     className={`text-xs px-3 py-1 rounded border ${
                       isSub
-                        ? "bg-green-50 border-green-200 text-green-800 hover:bg-green-100"
+                        ? "bg-green-50 border-slate-200 text-green-800 hover:bg-green-100"
                         : "bg-white hover:bg-gray-50"
                     }`}
                     title={isSub ? "Unsubscribe" : "Subscribe"}
@@ -173,14 +222,62 @@ export default async function SubscriptionsPage({
           })}
         </div>
       </section>
+        </div>
+      </details>
 
       <section className="rounded-card border shadow-card bg-white p-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <h2 className="text-lg font-semibold">
             Upcoming from your subscriptions (next 30 days)
           </h2>
           <div className="text-sm text-storm-600">{upcoming.length} events</div>
         </div>
+
+        <form method="get" className="mb-3 flex flex-wrap items-center gap-2">
+          <input
+            name="upcomingSearch"
+            placeholder="Search by set name"
+            defaultValue={upcomingSearch || ""}
+            className="rounded border px-2 py-1 min-w-[18rem] md:min-w-[22rem] lg:min-w-[24rem] flex-1"
+          />
+          <select
+            name="upcomingType"
+            defaultValue={upcomingType || ""}
+            className="rounded border px-2 py-1 min-w-[10rem]"
+          >
+            <option value="">All types</option>
+            <option value="shelf">shelf</option>
+            <option value="prerelease">prerelease</option>
+            <option value="promo">promo</option>
+            <option value="special">special</option>
+          </select>
+          <select
+            name="upcomingStatus"
+            defaultValue={upcomingStatus || ""}
+            className="rounded border px-2 py-1"
+          >
+            <option value="">All status</option>
+            <option value="announced">announced</option>
+            <option value="confirmed">confirmed</option>
+            <option value="delayed">delayed</option>
+            <option value="canceled">canceled</option>
+            <option value="rumor">rumor</option>
+          </select>
+          <select
+            name="upcomingSort"
+            defaultValue={upcomingSort || "dateAsc"}
+            className="rounded border px-2 py-1"
+          >
+            <option value="dateAsc">Date ↑</option>
+            <option value="dateDesc">Date ↓</option>
+            <option value="name">Set name</option>
+            <option value="type">Type</option>
+            <option value="status">Status</option>
+          </select>
+          <button type="submit" className="rounded bg-blue-600 px-3 py-1 text-white">
+            Apply
+          </button>
+        </form>
 
         <div className="overflow-auto">
           <table className="min-w-full text-sm">
@@ -194,7 +291,7 @@ export default async function SubscriptionsPage({
               </tr>
             </thead>
             <tbody>
-              {upcoming.map((ev: any) => (
+              {upcomingSorted.map((ev: any) => (
                 <tr key={ev.id} className="border-b last:border-0">
                   <td className="py-2 pr-4">
                     {ev.productSet?.name ?? "(set)"}

@@ -19,14 +19,18 @@ export default function Tabs() {
   }
 
   const base =
-    "px-3 py-1.5 rounded-md text-sm font-medium border transition-colors";
-  const active = "bg-brandAccent-600 text-white border-brandAccent-600";
-  const inactive = "bg-white text-gray-700 border-gray-200 hover:bg-gray-50";
+    "flex-1 text-center px-[calc(1rem+5px)] py-2 rounded-lg text-sm font-semibold border shadow-sm min-w-[8rem] transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brandAccent-400";
+  const active =
+    "bg-brandAccent-600 text-white border-brandAccent-600 shadow-lg";
+  const inactive =
+    "bg-white text-gray-800 border-gray-300 hover:bg-brandAccent-50 hover:text-brandAccent-700";
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-stretch gap-[2px]" role="tablist" aria-label="Calendar views">
       <button
         type="button"
+        role="tab"
+        aria-selected={current === "calendar"}
         className={`${base} ${current === "calendar" ? active : inactive}`}
         onClick={() => pushTab("calendar")}
       >
@@ -34,6 +38,8 @@ export default function Tabs() {
       </button>
       <button
         type="button"
+        role="tab"
+        aria-selected={current === "list"}
         className={`${base} ${current === "list" ? active : inactive}`}
         onClick={() => pushTab("list")}
       >
@@ -41,6 +47,8 @@ export default function Tabs() {
       </button>
       <button
         type="button"
+        role="tab"
+        aria-selected={current === "upcoming"}
         className={`${base} ${current === "upcoming" ? active : inactive}`}
         onClick={() => pushTab("upcoming")}
       >

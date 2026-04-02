@@ -9,6 +9,7 @@ import {
   setUserSubscription,
   deleteCommentIfAllowed,
   isAdminByPrefs,
+  hasEventsInDateRange,
 } from "../data/prismaRepo";
 import ClientCalendar from "./ClientCalendar";
 import { mapReleaseEventsToCalendar } from "./mapEvents";
@@ -222,10 +223,44 @@ export default async function CalendarPage({
 
   const [inRangeCalendar, inRangeList, upcomingUndef, session] = await Promise.all([
     listEventsByDateRangeAndFilters(rangeCalendar, filters),
-    listEventsByDateRangeAndFilters(rangeList, filters),
+    listEventsByDateRangeAndFilters(rangeList, { ...filters, excludePast: true }),
     listUpcomingUndefined({ installIds }), // TBD + future WINDOW (existing repo call)
     getSession(),
   ]);
+
+  function shiftMonth(d: Date, months: number) {
+    const next = new Date(d);
+    next.setMonth(next.getMonth() + months, 1);
+    return next;
+  }
+
+  const [listPrevHasEvents, listNextHasEvents] = await Promise.all([
+    hasEventsInDateRange(monthRange(shiftMonth(listMonth, -1)), {
+      ...filters,
+      excludePast: true,
+    }),
+    hasEventsInDateRange(monthRange(shiftMonth(listMonth, 1)), {
+      ...filters,
+      excludePast: true,
+    }),
+  ]);
+
+  function hasUpcomingInMonth(monthDate: Date) {
+    const { start, end } = monthRange(monthDate);
+    return upcomingUndef.some((ev: any) => {
+      if (ev.dateType === "TBD") return true;
+      if (ev.dateType === "WINDOW") {
+        const ws = ev.windowStart ? new Date(ev.windowStart) : null;
+        const we = ev.windowEnd ? new Date(ev.windowEnd) : null;
+        if (!ws || !we) return false;
+        return !(we < start || ws > end);
+      }
+      return false;
+    });
+  }
+
+  const upcomingPrevHasEvents = hasUpcomingInMonth(shiftMonth(upMonth, -1));
+  const upcomingNextHasEvents = hasUpcomingInMonth(shiftMonth(upMonth, 1));
 
   function fmtDate(d?: string | Date | null): string {
     if (!d) return "";
@@ -274,33 +309,36 @@ export default async function CalendarPage({
       <EventDrawer eventId={eventId} sp={sp as any} />
       {!userId && <CalendarSignInGate />}
 
-      <div className="sticky top-14 z-20 bg-gray-50/80 backdrop-blur supports-backdrop-filter:bg-gray-50/60 border-b">
-        <div className="w-[80%] mx-auto py-2">
-          <FilterBar sp={sp as any} />
-        </div>
-      </div>
-
       {/* Tabs row */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <Tabs />
         {/* Per-tab month switchers (Calendar uses its own RBC toolbar; we provide for List/Upcoming) */}
         <div className="flex items-center gap-4">{/* reserved */}</div>
       </div>
 
-      {/* Tab: Calendar */}
+      <div className="flex flex-col lg:flex-row gap-2">
+        <div className="w-full order-2 min-w-0 lg:order-1 lg:flex-1 lg:max-w-full">
+          {/* Tab: Calendar */}
       {activeTab === "calendar" && (
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold">
-            Calendar —{" "}
-            {calMonth.toLocaleString(undefined, {
-              month: "long",
-              year: "numeric",
-            })}
-          </h2>
-          <ClientCalendar
-            events={mapReleaseEventsToCalendar(inRangeCalendar)}
-            defaultDate={calMonth}
-          />
+          <div className="rounded-card border shadow-card bg-white p-3">
+            <h2 className="text-lg font-semibold">
+              Calendar —{" "}
+              {calMonth.toLocaleString(undefined, {
+                month: "long",
+                year: "numeric",
+              })}
+            </h2>
+
+            <div className="mt-4 overflow-x-auto">
+              <div className="min-w-full">
+                <ClientCalendar
+                  events={mapReleaseEventsToCalendar(inRangeCalendar)}
+                  defaultDate={calMonth}
+                />
+              </div>
+            </div>
+          </div>
           <div className="text-xs text-gray-600 flex flex-wrap gap-4 px-1">
             <span>
               <span className="inline-block w-2 h-2 bg-gray-800 rounded-sm mr-2"></span>
@@ -328,22 +366,24 @@ export default async function CalendarPage({
               <MonthSwitcher
                 param="ymList"
                 value={firstStr(sp.ymList) ?? undefined}
+                canPrev={listPrevHasEvents}
+                canNext={listNextHasEvents}
               />
             </h2>
           </div>
-          <div className="mt-3 overflow-auto">
-            <table className="min-w-full text-sm">
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-300 w-full text-xs">
               <thead>
                 <tr className="text-left border-b">
-                  <th className="py-2 pr-4">Product Set</th>
-                  <th className="py-2 pr-4">Type</th>
-                  <th className="py-2 pr-4">Date Type</th>
-                  <th className="py-2 pr-4">Exact</th>
-                  <th className="py-2 pr-4">Range</th>
-                  <th className="py-2 pr-4">Window</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Sources</th>
-                  <th className="py-2 pr-4">Comments</th>
+                  <th className="py-1 px-2 w-[18%]">Product Set</th>
+                  <th className="py-1 px-2 w-[10%]">Type</th>
+                  <th className="py-1 px-2 w-[10%]">Date Type</th>
+                  <th className="py-1 px-2 w-[10%]">Exact</th>
+                  <th className="py-1 px-2 w-[12%]">Range</th>
+                  <th className="py-1 px-2 w-[12%]">Window</th>
+                  <th className="py-1 px-2 w-[10%]">Status</th>
+                  <th className="py-1 px-2 w-[8%]">Sources</th>
+                  <th className="py-1 px-2 w-[10%]">Comments</th>
                 </tr>
               </thead>
               <tbody>
@@ -405,14 +445,16 @@ export default async function CalendarPage({
               <MonthSwitcher
                 param="ymUpcoming"
                 value={firstStr(sp.ymUpcoming) ?? undefined}
+                canPrev={upcomingPrevHasEvents}
+                canNext={upcomingNextHasEvents}
               />
             </h2>
           </div>
           <div className="text-xs text-gray-500">
             TBD always visible; WINDOW filtered to the selected month.
           </div>
-          <div className="mt-3 overflow-auto">
-            <table className="min-w-full text-sm">
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-300 w-full text-xs">
               <thead>
                 <tr className="text-left border-b">
                   <th className="py-2 pr-4">Product Set</th>
@@ -468,6 +510,31 @@ export default async function CalendarPage({
           </div>
         </section>
       )}
+        </div>
+
+        <aside className="w-full order-1 lg:order-2 lg:w-72 shrink-0 rounded-card border shadow-card bg-white p-3 sticky top-24 self-start">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold">Filters</h3>
+            <div className="flex items-center gap-2">
+              <a
+                href={`/calendar?tab=${encodeURIComponent(firstStr(sp.tab) ?? "calendar")}`}
+                className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
+                title="Reset filters"
+              >
+                Reset
+              </a>
+              <button
+                type="submit"
+                form="filter-form"
+                className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+          <FilterBar sp={sp as any} />
+        </aside>
+      </div>
     </SiteShell>
   );
 }

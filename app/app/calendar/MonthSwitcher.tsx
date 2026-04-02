@@ -8,10 +8,14 @@ export default function MonthSwitcher({
   param,
   label,
   value, // "YYYY-MM"
+  canPrev = true,
+  canNext = true,
 }: {
   param: string;
   label?: string;
   value?: string | null;
+  canPrev?: boolean;
+  canNext?: boolean;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -39,11 +43,13 @@ export default function MonthSwitcher({
   }
 
   function prev() {
+    if (!canPrev) return;
     const d = new Date(date);
     d.setMonth(d.getMonth() - 1, 1);
     push(d);
   }
   function next() {
+    if (!canNext) return;
     const d = new Date(date);
     d.setMonth(d.getMonth() + 1, 1);
     push(d);
@@ -54,23 +60,39 @@ export default function MonthSwitcher({
     year: "numeric",
   });
 
+  function goToToday() {
+    const now = new Date();
+    push(now);
+  }
+
   return (
     <div className="inline-flex items-center gap-2 text-sm">
-      {label ? <span className="text-storm-600">{label}</span> : null}
+      {label ? <span className="text-slate-600 font-medium">{label}</span> : null}
       <button
         type="button"
         onClick={prev}
-        className="px-2 py-1 rounded border bg-white hover:bg-gray-50"
+        disabled={!canPrev}
+        className={`px-2 py-1 rounded border bg-white hover:bg-gray-50 ${!canPrev ? 'opacity-40 cursor-not-allowed' : ''}`}
+        aria-label="Previous month"
       >
         ◀
       </button>
-      <span className="min-w-[10ch] text-center">{monthLabel}</span>
+      <span className="min-w-[12ch] text-center font-semibold">{monthLabel}</span>
       <button
         type="button"
         onClick={next}
-        className="px-2 py-1 rounded border bg-white hover:bg-gray-50"
+        disabled={!canNext}
+        className={`px-2 py-1 rounded border bg-white hover:bg-gray-50 ${!canNext ? 'opacity-40 cursor-not-allowed' : ''}`}
+        aria-label="Next month"
       >
         ▶
+      </button>
+      <button
+        type="button"
+        onClick={goToToday}
+        className="px-2 py-1 rounded border bg-blue-600 text-white hover:bg-blue-700"
+      >
+        Today
       </button>
     </div>
   );

@@ -43,6 +43,68 @@ export async function ensureAdmin(): Promise<string> {
   return userId;
 }
 
+export async function removeDuplicateReleaseEvents() {
+  await ensureAdmin();
+
+  const events = await prisma.releaseEvent.findMany({
+    orderBy: [
+      { productSetId: "asc" },
+      { type: "asc" },
+      { dateType: "asc" },
+      { dateExact: "asc" },
+      { dateStart: "asc" },
+      { dateEnd: "asc" },
+      { windowGranularity: "asc" },
+      { windowStart: "asc" },
+      { windowEnd: "asc" },
+      { status: "asc" },
+    ],
+  });
+
+  const seen = new Set<string>();
+  const duplicateIds: string[] = [];
+
+  for (const ev of events) {
+    const key = JSON.stringify({
+      productSetId: ev.productSetId,
+      type: ev.type,
+      dateType: ev.dateType,
+      dateExact: ev.dateExact?.toISOString() ?? null,
+      dateStart: ev.dateStart?.toISOString() ?? null,
+      dateEnd: ev.dateEnd?.toISOString() ?? null,
+      windowGranularity: ev.windowGranularity,
+      windowStart: ev.windowStart?.toISOString() ?? null,
+      windowEnd: ev.windowEnd?.toISOString() ?? null,
+      status: ev.status,
+      sourceSummary: ev.sourceSummary,
+      isManualOverride: ev.isManualOverride,
+    });
+
+    if (seen.has(key)) {
+      duplicateIds.push(ev.id);
+    } else {
+      seen.add(key);
+    }
+  }
+
+  if (duplicateIds.length > 0) {
+    await prisma.releaseEvent.deleteMany({ where: { id: { in: duplicateIds } } });
+  }
+
+  return { removed: duplicateIds.length };
+}
+
+export async function dedupeReleaseEventsAction(formData: FormData) {
+  "use server";
+  const result = await removeDuplicateReleaseEvents();
+  revalidatePath("/admin");
+  redirect(
+    `/admin?ok=1&msg=${encodeURIComponent(
+      `Removed ${result.removed} duplicate release event(s)`,
+    )}`,
+  );
+}
+
 export async function listRows(model: string, take = 25) {
   await ensureAdmin();
   const delegate = getDelegate(model);

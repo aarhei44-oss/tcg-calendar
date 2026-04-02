@@ -45,6 +45,7 @@ export default function ClientCalendar({
 }) {
   const router = useRouter();
   const sp = useSearchParams();
+  const isCompact = (sp?.get("mode") ?? "") === "compact";
 
   function pushWithEvent(id: string) {
     const qp = new URLSearchParams(sp?.toString() ?? "");
@@ -76,11 +77,18 @@ export default function ClientCalendar({
     [router, keepFilters],
   );
 
+  const CompactEvent = ({ event }: { event: CalendarEvent }) => (
+    <div className="overflow-hidden text-[10px] leading-tight" title={`${event.productSetName ?? "(set)"}${event.type ? " — " + event.type : ""}`}>
+      {event.productSetName ?? "(set)"}
+      {event.type ? ` · ${event.type}` : ""}
+    </div>
+  );
+
   const components = useMemo(
     () => ({
-      // minimal styling; can customize more later
+      event: isCompact ? CompactEvent : undefined,
     }),
-    [],
+    [isCompact],
   );
 
   // Typed event style getter
@@ -91,6 +99,9 @@ export default function ClientCalendar({
     _end?: Date,
     _isSelected?: boolean,
   ) => {
+    const baseStyle = isCompact
+      ? { fontSize: "11px", padding: "1px 2px", lineHeight: "1.1", borderRadius: "3px" }
+      : { fontSize: "12px", padding: "2px 4px", lineHeight: "1.2", borderRadius: "4px" };
     const type = (event?.type ?? "").toLowerCase();
     const bg =
       type === "shelf"
@@ -108,12 +119,25 @@ export default function ClientCalendar({
         backgroundColor: bg,
         borderColor: bg,
         color: "#ffffff",
+        ...baseStyle,
       },
     } as const;
   };
 
   return (
-    <div className="rounded border p-3 bg-blue-100">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <div className="text-sm text-slate-600">Click an event to view details</div>
+        <div className="text-xs text-slate-400">{events.length} events shown</div>
+        <div>
+          <a
+            href={isCompact ? "/calendar" : "/calendar?mode=compact"}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            {isCompact ? "Normal mode" : "Compact mode"}
+          </a>
+        </div>
+      </div>
       <Calendar
         localizer={localizer}
         events={events}
@@ -128,8 +152,9 @@ export default function ClientCalendar({
         date={date}
         defaultDate={undefined}
         components={components}
-        style={{ height: 650 }}
+        style={{ height: isCompact ? 620 : 760 }}
         eventPropGetter={eventStyleGetter}
+        dayPropGetter={() => ({ style: { minHeight: isCompact ? 58 : 80 } })}
         onSelectEvent={(evt: any) => {
           if (evt?.id) pushWithEvent(String(evt.id));
         }}

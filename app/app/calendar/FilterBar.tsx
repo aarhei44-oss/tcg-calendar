@@ -48,15 +48,30 @@ export default async function FilterBar({ sp }: { sp: SP }) {
   const selectedInstalls = parseCsvInput(sp.installIds) ?? [];
   const search = firstStr(sp.search) ?? "";
   const ym = firstStr(sp.ym) ?? "";
+  const ymList = firstStr(sp.ymList) ?? "";
+  const ymUpcoming = firstStr(sp.ymUpcoming) ?? "";
+  const tab = firstStr(sp.tab) ?? "calendar";
+
+  const hasFilters =
+    selectedTypes.length || selectedStatus.length || selectedInstalls.length || search;
 
   return (
-    <form method="get" className="w-full">
-      {/* Preserve current month selection */}
+    <form id="filter-form" method="get" className="w-full">
+      <input type="hidden" name="tab" value={tab} />
       {ym ? <input type="hidden" name="ym" value={ym} /> : null}
+      {ymList ? <input type="hidden" name="ymList" value={ymList} /> : null}
+      {ymUpcoming ? <input type="hidden" name="ymUpcoming" value={ymUpcoming} /> : null}
 
-      <div className="flex flex-wrap items-center gap-2 bg-white rounded-card border shadow-card px-3 py-2">
-        {/* Types */}
-        <details className="group relative">
+      <div className="flex flex-col gap-3 bg-white rounded-card border shadow-card px-3 py-2">
+        <input
+          className="text-sm border rounded px-2 py-1 w-full"
+          name="search"
+          placeholder="Search sets…"
+          defaultValue={search}
+        />
+        <div className="flex flex-col gap-2">
+          {/* Types */}
+          <details className="group relative">
           <summary className="cursor-pointer text-xs px-2 py-1 rounded border bg-white hover:bg-gray-50">
             Types {selectedTypes.length ? `(${selectedTypes.length})` : ""}
           </summary>
@@ -199,31 +214,32 @@ export default async function FilterBar({ sp }: { sp: SP }) {
           </div>
         </details>
 
-        {/* Search (minimal) */}
-        <input
-          className="text-xs border rounded px-2 py-1 w-55"
-          name="search"
-          placeholder="Search sets…"
-          defaultValue={search}
-        />
+        {/* Active filters chips */}
+        {hasFilters && (
+          <div className="flex flex-col gap-1">
+            {selectedTypes.map((t) => (
+              <span key={`type-${t}`} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                {t}
+              </span>
+            ))}
+            {selectedStatus.map((s) => (
+              <span key={`status-${s}`} className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                {s}
+              </span>
+            ))}
+            {selectedInstalls.map((i) => (
+              <span key={`install-${i}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                {i.slice(0, 6)}…
+              </span>
+            ))}
+            {search && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Search: {search}</span>
+            )}
+          </div>
+        )}
 
-        {/* Apply & Reset */}
-        <div className="ml-auto flex items-center gap-2">
-          <a
-            href="/calendar"
-            className="text-xs px-2 py-1 rounded border hover:bg-gray-50"
-            title="Reset filters"
-          >
-            Reset
-          </a>
-          <button
-            type="submit"
-            className="text-xs px-3 py-1 rounded bg-brandAccent-600 text-white hover:bg-brandAccent-700"
-          >
-            Apply
-          </button>
-        </div>
       </div>
+    </div>
     </form>
   );
 }

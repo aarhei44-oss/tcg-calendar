@@ -1,10 +1,9 @@
 
 // /app/app/calendar/CommentsForEvent.tsx
 import React from 'react';
-import { headers, cookies as rscCookies } from 'next/headers';
-import { getUserById } from 'app/data/prismaRepo';
+import { getSession } from 'app/auth';
+import { getUserById, listEventComments } from 'app/data/prismaRepo';
 import { commentAction, deleteCommentAction } from './page'; // re-use existing actions
-import { absUrl } from './absUrlHelper';
 
 // Small util
 function fmtDate(d?: string | Date | null): string {
@@ -14,27 +13,19 @@ function fmtDate(d?: string | Date | null): string {
 }
 
 export default async function CommentsForEvent({ eventId }: { eventId: string }) {
-  const hs = await headers();
-  const cookie = hs.get('cookie') ?? '';
+  const session = await getSession();
+  const currentUserId = session?.user?.id ?? null;
 
-  const store = await rscCookies();
-  const currentUserId = store.get('userId')?.value ?? null;
   let isAdmin = false;
   if (currentUserId) {
     const u = await getUserById(currentUserId);
-    isAdmin = (u?.role === 'admin');
+    isAdmin = u?.role === 'admin';
   }
 
-  const res = await fetch(await absUrl(`/api/events/${eventId}/comments`), {
-    cache: 'no-store',
-    headers: { cookie },
-  });
-  const json = res.ok ? await res.json() : { comments: [] as any[] };
-  const comments: Array<{ id: string; content: string; user?: { id?: string; name?: string } }> =
-    json.comments ?? [];
+  const comments = await listEventComments(eventId);
 
-  // Only show comments authored by the current user
-  const visibleComments = currentUserId ? comments.filter(c => c.user?.id === currentUserId) : [];
+  // Show all comments; delete controls are limited to author/admin.
+  const visibleComments = comments;
 
   return (
     <div className="space-y-3">

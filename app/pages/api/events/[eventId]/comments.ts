@@ -1,6 +1,8 @@
 // /app/pages/api/events/[eventId]/comments.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { addEventComment, listEventComments } from "app/data/prismaRepo";
+import { getServerSession } from "next-auth";
+import { authOptions } from "app/auth";
 
 export default async function handler(
   req: NextApiRequest,
@@ -24,8 +26,12 @@ export default async function handler(
   }
 
   if (req.method === "POST") {
-    // Read the userId cookie (set earlier via /api/user/init)
-    const userId = (req.cookies as any)?.userId as string | undefined;
+    // Prefer session-based auth fallback; keep compatibility with userId cookie.
+    const session = await getServerSession(req, res, authOptions);
+    const userId =
+      (req.cookies as any)?.userId as string | undefined ||
+      session?.user?.id;
+
     if (!userId)
       return res.status(401).json({ ok: false, error: "Not signed in" });
 

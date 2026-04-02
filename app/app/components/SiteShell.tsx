@@ -21,42 +21,51 @@ export default async function SiteShell({
   const isAdmin = userId ? await isAdminByPrefs(userId) : false;
 
   return (
-    <div className="min-h-screen grid grid-cols-[240px_1fr] grid-rows-[56px_1fr]">
-      {/* Left nav */}
-      <aside className="row-span-2 bg-midnight-950 border border-gray-300  ">
-        <div className="px-4 text-gray-900 py-4 text-lg font-bold tracking-wide">
-          Release Watcher
-        </div>
-        <nav className="px-2">
-          <NavItem
-            href="/calendar"
-            label="Calendar"
-            active={current === "calendar"}
-          />
-          <NavItem
-            href="/subscriptions"
-            label="Subscriptions"
-            active={current === "subscriptions"}
-          />
-          <NavItem href="/admin" label="Admin"  />
-        </nav>
-        <div className="mt-auto px-4 py-4 text-xs text-gray-900">
-          <p>v0.1 • auto theme</p>
-        </div>
-      </aside>
+    <div className="min-h-screen bg-slate-100 text-slate-900">
+      <div className="md:flex">
+        <aside className="w-full md:w-64 bg-slate-900 text-white border-b md:border-b-0 md:border-r border-slate-200">
+          <div className="flex items-center justify-between px-4 py-4 border-b border-slate-800">
+            <div className="text-lg font-bold tracking-wide">Release Watcher</div>
+            <span className="hidden md:inline text-[11px] bg-slate-700 px-2 py-1 rounded">v0.1</span>
+          </div>
 
-      {/* Narrow header */}
-      <header className="col-start-2 border-b border-gray-300 flex items-center justify-between px-4">
-        <h1 className="text-xl font-semibold">{title}</h1>
-        <div className="text-sm text-storm-600">
-          {/* room for breadcrumb / month label / user chip */}
-        </div>
-      </header>
+          <nav className="px-3 py-4 space-y-1">
+            <NavItem
+              href="/calendar"
+              label="Calendar"
+              active={current === "calendar"}
+            />
+            <NavItem
+              href="/subscriptions"
+              label="Subscriptions"
+              active={current === "subscriptions"}
+            />
+            {isAdmin && (
+              <NavItem href="/admin" label="Admin" active={current === "admin"} />
+            )}
+          </nav>
 
-      {/* Content panel (80% width) */}
-      <main className="col-start-2 bg-blue-50">
-        <div className="w-[80%] mx-auto py-6 space-y-8">{children}</div>
-      </main>
+          <div className="mt-auto px-4 py-4 text-xs text-slate-300">
+            <p>Fast release tracking • mobile ready</p>
+            {userId ? (
+              <p className="mt-1">Signed in</p>
+            ) : (
+              <p className="mt-1">Guest mode</p>
+            )}
+          </div>
+        </aside>
+
+        <main className="flex-1">
+          <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 shadow-sm md:shadow-none">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h1 className="text-xl font-semibold">{title}</h1>
+              <div className="text-sm text-slate-600">{current?.toUpperCase() || "Calendar"}</div>
+            </div>
+          </header>
+
+          <div className="mx-auto w-full max-w-[calc(100vw-2rem)] px-3 py-4">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }
@@ -74,10 +83,10 @@ function NavItem({
     <Link
       href={href}
       className={[
-        "block rounded-md px-3 py-2 my-1 text-sm font-medium",
+        "block rounded-lg px-3 py-2 text-sm font-medium transition",
         active
-          ? "bg-white text-blue-950 shadow-sm"
-          : "text-gray-600 hover:bg-brandAccent-600/20 hover:text-white",
+          ? "bg-slate-700 text-white shadow-inner"
+          : "text-slate-300 hover:bg-slate-800 hover:text-white",
       ].join(" ")}
     >
       {label}

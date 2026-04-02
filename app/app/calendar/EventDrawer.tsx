@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { getEventDetails } from 'app/data/prismaRepo';
+import { TypeBadge, StatusBadge } from 'app/ui/Badges';
 import CommentsForEvent from './CommentsForEvent';
 
 // Build a URL without "event" while preserving other query params
@@ -65,9 +66,15 @@ export default async function EventDrawer({
         <div className="p-4 space-y-4 overflow-y-auto">
           {/* Core fields */}
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><span className="text-gray-500">Type:</span> <span className="font-medium">{ev.type}</span></div>
-            <div><span className="text-gray-500">Status:</span> <span className="font-medium">{ev.status}</span></div>
-            <div><span className="text-gray-500">Date Type:</span> <span className="font-medium">{ev.dateType}</span></div>
+            <div>
+              <span className="text-slate-500">Type:</span>{' '}
+              <TypeBadge variant={ev.type ?? 'n/a'} />
+            </div>
+            <div>
+              <span className="text-slate-500">Status:</span>{' '}
+              <StatusBadge variant={ev.status ?? 'n/a'} />
+            </div>
+            <div><span className="text-slate-500">Date Type:</span> <span className="font-medium">{ev.dateType}</span></div>
 
             {ev.dateType === 'EXACT' && (
               <div className="col-span-2"><span className="text-gray-500">Date:</span> <span className="font-medium">{fmtDate(ev.dateExact)}</span></div>
