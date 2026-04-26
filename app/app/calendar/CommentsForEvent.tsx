@@ -5,12 +5,11 @@ import { getSession } from '../../app/auth';
 import { getUserById, listEventComments } from '../../data/admin/adminRepo';
 import { commentAction, deleteCommentAction } from './page'; // re-use existing actions
 
-// Small util
-function fmtDate(d?: string | Date | null): string {
-  if (!d) return '';
-  const iso = typeof d === 'string' ? d : d.toISOString();
-  return new Date(iso).toISOString().slice(0, 10);
-}
+import React from 'react';
+import { getSession } from '../auth';
+import { listEventComments, getUserById } from '../../data/admin/adminRepo';
+import { commentAction, deleteCommentAction } from './page'; // re-use existing actions
+import { fmtDate } from '../lib/utils';
 
 export default async function CommentsForEvent({ eventId }: { eventId: string }) {
   const session = await getSession();

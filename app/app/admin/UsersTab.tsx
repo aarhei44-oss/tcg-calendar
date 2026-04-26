@@ -1,25 +1,12 @@
 
 // /app/app/admin/UsersTab.tsx
+<<<<<<< HEAD
+=======
+
+>>>>>>> a01b7a957253c383303783724856fd7fba47ad34
 import { adminListUsers, adminSetUserActive, adminSetUserIsAdmin } from "../../data/admin/adminRepo";
 import { redirect } from "next/navigation";
-
-/**
- * Format a Date or date-like value as YYYY-MM-DD.
- * Returns "-" if the value is null/undefined or invalid.
- */
-function fmtDate(d: unknown): string {
-  const date =
-    d instanceof Date
-      ? d
-      : typeof d === "string"
-      ? new Date(d)
-      : d && typeof (d as any).toDate === "function"
-      ? new Date((d as any).toDate()) // safety if accidental Day.js/Moment
-      : null;
-
-  if (!date || isNaN(date.getTime())) return "-";
-  return date.toISOString().slice(0, 10);
-}
+import { fmtDate } from "../lib/utils";
 
 export default async function UsersTab() {
   const users = await adminListUsers();

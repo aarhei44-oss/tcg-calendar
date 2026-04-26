@@ -143,14 +143,29 @@ export async function deleteRow(model: string, where: any) {
   return (await delegate.delete({ where })) as any;
 }
 
+
 /** Build absolute URL for calling Pages API (bulk seed) */
-async function absUrl(path: string) {
+export async function absUrl(path: string) {
   const hs = await headers();
   const host = hs.get("x-forwarded-host") ?? hs.get("host") ?? "localhost:3000";
   const proto =
     hs.get("x-forwarded-proto") ??
     (process.env.NODE_ENV === "production" ? "https" : "http");
   return `${proto}://${host}${path}`;
+}
+
+export async function getInstalls() {
+  return prisma.tcgProfileInstall.findMany({
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      packageId: true,
+      installedVersion: true,
+      enabled: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 }
 
 export async function toggleInstallEnabled(formData: FormData) {

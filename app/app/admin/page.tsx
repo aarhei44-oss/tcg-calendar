@@ -14,31 +14,8 @@ import UsersTab from "./UsersTab";
 import SystemTab from "./SystemTab";
 import { ensureAdmin } from "./db/actions";
 
-// ---- Helpers ----
-async function getInstalls() {
-  return prisma.tcgProfileInstall.findMany({
-    orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      packageId: true,
-      installedVersion: true,
-      enabled: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
-}
 
-// Build absolute URL for calling Pages API (bulk seed)
-async function absUrl(path: string) {
-  // headers() is sync, but keeping function async is fine since we await it above.
-  const hs = await headers();
-  const host = hs.get("x-forwarded-host") ?? hs.get("host") ?? "localhost:3000";
-  const proto =
-    hs.get("x-forwarded-proto") ??
-    (process.env.NODE_ENV === "production" ? "https" : "http");
-  return `${proto}://${host}${path}`;
-}
+import { getInstalls, absUrl } from "./db/actions";
 
 // ---- Server actions (admin-only) ----
 export async function toggleInstallEnabled(formData: FormData) {

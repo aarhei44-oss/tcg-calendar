@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getUserSubscriptions, setUserSubscription } from "../../../../app/data/admin/adminRepo";
+import { getUserSubscriptions, setUserSubscription } from "../../../data/admin/adminRepo";
 
 export default async function handler(
   req: NextApiRequest,

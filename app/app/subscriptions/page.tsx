@@ -1,26 +1,24 @@
 // /app/app/subscriptions/page.tsx
 import React from "react";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import SiteShell from "../components/SiteShell";
 import { prisma } from "../../app/lib/prisma";
-import { getUserSubscriptions, setUserSubscription } from "../../data/admin/adminRepo";
 import { listEventsByDateRangeAndFilters } from "../../data/calendar/calendarRepo";
 import { TypeBadge, StatusBadge } from "../../app/ui/Badges";
 import CalendarSignInGate from "../calendar/SignInGate";
+import SiteShell from "../components/SiteShell";
+import { setUserSubscription, getUserSubscriptions } from "../../data/admin/adminRepo";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { getSession } from "../auth";
+// /app/app/subscriptions/page.tsx
 
 export const dynamic = "force-dynamic";
+
+import { fmtDate } from "../lib/utils";
 
 function addDays(d: Date, n: number) {
   const x = new Date(d);
   x.setDate(x.getDate() + n);
   return x;
-}
-function fmtDate(d?: string | Date | null): string {
-  if (!d) return "";
-  const iso = typeof d === "string" ? d : d.toISOString();
-  return new Date(iso).toISOString().slice(0, 10);
 }
 
 // ---- Server Action: toggle subscription ----
@@ -238,12 +236,12 @@ export default async function SubscriptionsPage({
             name="upcomingSearch"
             placeholder="Search by set name"
             defaultValue={upcomingSearch || ""}
-            className="rounded border px-2 py-1 min-w-[18rem] md:min-w-[22rem] lg:min-w-[24rem] flex-1"
+            className="rounded border px-2 py-1 min-w-72 md:min-w-88 lg:min-w-96 flex-1"
           />
           <select
             name="upcomingType"
             defaultValue={upcomingType || ""}
-            className="rounded border px-2 py-1 min-w-[10rem]"
+            className="rounded border px-2 py-1 min-w-40"
           >
             <option value="">All types</option>
             <option value="shelf">shelf</option>

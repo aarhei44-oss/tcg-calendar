@@ -72,7 +72,7 @@ function SafePrismaAdapter(): Adapter {
       // Prefer base implementation
       try {
         if (typeof base.linkAccount === "function") {
-          await base.linkAccount(account);
+          await base.linkAccount(account as any);
           return;
         }
       } catch {
