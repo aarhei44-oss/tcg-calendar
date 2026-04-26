@@ -14,6 +14,11 @@ async function getInstalls() {
       enabled: true,
       createdAt: true,
       updatedAt: true,
+      package: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 }
@@ -85,7 +90,7 @@ export default async function ProfilesTab() {
                     />
                   </td>
                   <td className="py-2 px-3 align-middle">
-                    <div className="font-medium">{row.packageId}</div>
+                    <div className="font-medium">{row.package?.name ?? row.packageId}</div>
                     <div className="text-xs text-gray-500">id {row.id.slice(0, 8)}…</div>
                   </td>
                   <td className="py-2 px-3 align-middle">

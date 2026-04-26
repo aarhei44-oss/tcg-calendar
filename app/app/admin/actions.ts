@@ -3,7 +3,7 @@ import { prisma } from "../lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureAdmin } from "./db/actions";
-import { absUrl } from "./db/actions";
+//import { absUrl } from "./db/actions";
 
 export async function toggleInstallEnabled(formData: FormData) {
   "use server";
@@ -33,7 +33,7 @@ export async function enableAndSeedSelected(formData: FormData) {
     redirect("/admin?ok=0&msg=No%20installs%20selected");
   }
 
-  const url = await absUrl("/api/admin/enable-profiles");
+  const url = '';//await absUrl("/api/admin/enable-profiles");
   const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
