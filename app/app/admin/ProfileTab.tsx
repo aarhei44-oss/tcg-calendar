@@ -1,7 +1,7 @@
 
 // /app/app/admin/ProfilesTab.tsx
 import React from "react";
-import { prisma } from "app/lib/prisma";
+import { prisma } from "../../app/lib/prisma";
 import { enableAndSeedSelected, toggleInstallEnabled } from "./db/actions";
 
 async function getInstalls() {

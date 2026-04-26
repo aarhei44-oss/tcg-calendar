@@ -1,6 +1,6 @@
 
 // /app/app/admin/UsersTab.tsx
-import { adminListUsers, adminSetUserActive, adminSetUserIsAdmin } from "app/data/prismaRepo";
+import { adminListUsers, adminSetUserActive, adminSetUserIsAdmin } from "../../data/admin/adminRepo";
 import { redirect } from "next/navigation";
 
 /**

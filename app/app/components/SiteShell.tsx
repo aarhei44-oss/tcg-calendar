@@ -1,8 +1,8 @@
 // /app/app/components/SiteShell.tsx
 import React from "react";
 import Link from "next/link";
-import { getSession } from "app/auth"; // adjust if your path differs
-import { isAdminByPrefs } from "app/data/prismaRepo";
+import { getSession } from "../../app/auth"; // adjust if your path differs
+import { isAdminByPrefs } from "../../data/admin/adminRepo"; // adjust if your path differs
 
 
 export default async function SiteShell({

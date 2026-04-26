@@ -3,10 +3,10 @@ import React from "react";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import SiteShell from "../components/SiteShell";
-import { prisma } from "app/lib/prisma";
-import { getUserSubscriptions, setUserSubscription } from "../data/prismaRepo";
-import { listEventsByDateRangeAndFilters } from "app/data/prismaRepo";
-import { TypeBadge, StatusBadge } from "app/ui/Badges";
+import { prisma } from "../../app/lib/prisma";
+import { getUserSubscriptions, setUserSubscription } from "../../data/admin/adminRepo";
+import { listEventsByDateRangeAndFilters } from "../../data/calendar/calendarRepo";
+import { TypeBadge, StatusBadge } from "../../app/ui/Badges";
 import CalendarSignInGate from "../calendar/SignInGate";
 import { getSession } from "../auth";
 

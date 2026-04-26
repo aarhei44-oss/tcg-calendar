@@ -2,21 +2,22 @@
 import SiteShell from "../components/SiteShell";
 import { headers } from "next/headers";
 import CalendarSignInGate from "./SignInGate";
+import{ addEventComment,
+  setUserSubscription,
+  deleteCommentIfAllowed,
+  isAdminByPrefs} from "../../data/admin/adminRepo";
 import {
   listEventsByDateRangeAndFilters,
   listUpcomingUndefined,
-  addEventComment,
-  setUserSubscription,
-  deleteCommentIfAllowed,
-  isAdminByPrefs,
+  
   hasEventsInDateRange,
-} from "../data/prismaRepo";
+} from "../../data/calendar/calendarRepo";
 import ClientCalendar from "./ClientCalendar";
 import { mapReleaseEventsToCalendar } from "./mapEvents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import FilterBar from "./FilterBar";
-import { TypeBadge, StatusBadge } from "app/ui/Badges";
+import { TypeBadge, StatusBadge } from "../../app/ui/Badges";
 import Tabs from "./Tabs";
 import MonthSwitcher from "./MonthSwitcher";
 import EventDrawer from "./EventDrawer";

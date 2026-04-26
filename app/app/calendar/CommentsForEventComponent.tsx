@@ -1,16 +1,9 @@
-
-// /app/app/calendar/CommentsForEvent.tsx
+// /app/app/calendar/CommentsForEventComponent.tsx
 import React from 'react';
-import { getSession } from '../../app/auth';
-import { getUserById, listEventComments } from '../../data/admin/adminRepo';
-import { commentAction, deleteCommentAction } from './page'; // re-use existing actions
-
-// Small util
-function fmtDate(d?: string | Date | null): string {
-  if (!d) return '';
-  const iso = typeof d === 'string' ? d : d.toISOString();
-  return new Date(iso).toISOString().slice(0, 10);
-}
+import { getSession } from '../auth';
+import { listEventComments, getUserById } from '../../data/admin/adminRepo';
+import { commentAction, deleteCommentAction } from './actions';
+import { fmtDate } from '../lib/utils';
 
 export default async function CommentsForEvent({ eventId }: { eventId: string }) {
   const session = await getSession();
@@ -63,17 +56,7 @@ export default async function CommentsForEvent({ eventId }: { eventId: string })
                 {canDelete && (
                   <form action={deleteCommentAction}>
                     <input type="hidden" name="commentId" value={c.id} />
-                    <button
-                      type="submit"
-                      title="Delete comment"
-                      className="text-gray-500 hover:text-rose-600 p-1"
-                      aria-label="Delete comment"
-                    >
-                      {/* Trash icon */}
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M8.5 3a1 1 0 00-.894.553L7.382 4H5a1 1 0 100 2h.278l.77 9.242A2 2 0 008.043 17h3.914a2 2 0 001.995-1.758L14.722 6H15a1 1 0 100-2h-2.382l-.224-.447A1 1 0 0011.5 3h-3zM9 7a1 1 0 012 0v7a1 1 0 11-2 0V7z" clipRule="evenodd" />
-                      </svg>
-                    </button>
+                    <button type="submit" className="ml-2 text-red-500 hover:underline">Delete</button>
                   </form>
                 )}
               </li>

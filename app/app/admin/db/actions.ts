@@ -1,14 +1,14 @@
 "use server";
 
-import { prisma } from "app/lib/prisma";
-import { isAdminByPrefs } from "app/data/prismaRepo";
-import { getSession } from "app/auth";
+import { prisma } from "../../../app/lib/prisma";
+import { isAdminByPrefs } from "../../../data/admin/adminRepo";
+import { getSession } from "../../../app/auth";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { enableProfilesAndSeedData } from '../../data/prismaRepo';
+import { enableProfilesAndSeedData } from '../../../data/calendar/calendarRepo';
 
 export async function adminEnableProfiles(installs: string[], options?: unknown) {
   await enableProfilesAndSeedData(installs, options);

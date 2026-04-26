@@ -3,7 +3,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../app/auth";
-import { isAdminByPrefs } from "../../../app/data/prismaRepo";
+import { isAdminByPrefs } from "../../../data/admin/adminRepo";
 
 /**
  * Helper to enforce admin for Pages API routes.

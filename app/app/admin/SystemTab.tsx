@@ -1,6 +1,6 @@
 
-import { getSession } from "app/auth";
-import { isAdminByPrefs } from "app/data/prismaRepo";
+import { getSession } from "../../app/auth";
+import { isAdminByPrefs } from "../../data/admin/adminRepo";
 import DbCrudClient from "./db/DbCrudClient";
 import { dedupeReleaseEventsAction } from "./db/actions";
 

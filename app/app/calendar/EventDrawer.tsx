@@ -2,8 +2,8 @@
 // /app/app/calendar/EventDrawer.tsx
 import React from 'react';
 import Link from 'next/link';
-import { getEventDetails } from 'app/data/prismaRepo';
-import { TypeBadge, StatusBadge } from 'app/ui/Badges';
+import { getEventDetails } from '../../data/calendar/calendarRepo';
+import { TypeBadge, StatusBadge } from '../../app/ui/Badges';
 import CommentsForEvent from './CommentsForEvent';
 
 // Build a URL without "event" while preserving other query params

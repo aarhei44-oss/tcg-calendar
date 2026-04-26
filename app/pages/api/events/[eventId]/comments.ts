@@ -1,8 +1,8 @@
 // /app/pages/api/events/[eventId]/comments.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import { addEventComment, listEventComments } from "app/data/prismaRepo";
+import { addEventComment, listEventComments } from "../../../../data/admin/adminRepo";
 import { getServerSession } from "next-auth";
-import { authOptions } from "app/auth";
+import { authOptions } from "../../../../app/auth";
 
 export default async function handler(
   req: NextApiRequest,

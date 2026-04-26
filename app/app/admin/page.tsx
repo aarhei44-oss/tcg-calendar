@@ -2,14 +2,14 @@
 // /app/app/admin/page.tsx
 import React from "react";
 import SiteShell from "../components/SiteShell";
-import { prisma } from "app/lib/prisma";
+import { prisma } from "../../app/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect, notFound } from "next/navigation";
 import { headers } from "next/headers";
 import AdminTabs from "./AdminTabs";
 import DbCrudClient from "./db/DbCrudClient";
-import { getSession } from "app/auth";
-import { isAdminByPrefs } from "app/data/prismaRepo";
+import { getSession } from "../../app/auth";
+import { isAdminByPrefs } from "../../data/admin/adminRepo";
 import UsersTab from "./UsersTab";
 import SystemTab from "./SystemTab";
 import { ensureAdmin } from "./db/actions";
