@@ -1,7 +1,7 @@
 
 // /app/app/calendar/SignInGate.tsx
-import { getSession } from "app/auth";
-import SignInBanner from "app/components/SignInBanner";
+import { getSession } from "../auth";
+import SignInBanner from "../components/SignInBanner";
 
 /**
  * Shows a sign-in banner if the user is not authenticated.

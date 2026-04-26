@@ -1,7 +1,7 @@
 // /app/pages/api/user/init.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { setUserIdCookie } from "app/lib/cookies";
-import { getOrCreateUserByEmail } from "app/data/prismaRepo";
+import { getOrCreateUserByEmail } from "data/admin/adminRepo";
 
 function buildUserIdSetCookie(userId: string) {
   const isProd = process.env.NODE_ENV === "production";

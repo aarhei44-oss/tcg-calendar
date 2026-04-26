@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { Adapter, AdapterUser, AdapterAccount } from "next-auth/adapters";
-import { prisma } from "app/lib/prisma";
+import { prisma } from "./lib/prisma";
 
 const adminEmails = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
@@ -72,7 +72,7 @@ function SafePrismaAdapter(): Adapter {
       // Prefer base implementation
       try {
         if (typeof base.linkAccount === "function") {
-          await base.linkAccount(account);
+          await base.linkAccount(account as any);
           return;
         }
       } catch {

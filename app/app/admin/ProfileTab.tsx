@@ -1,22 +1,8 @@
 
 // /app/app/admin/ProfilesTab.tsx
-import React from "react";
-import { prisma } from "app/lib/prisma";
-import { enableAndSeedSelected, toggleInstallEnabled } from "./db/actions";
 
-async function getInstalls() {
-  return prisma.tcgProfileInstall.findMany({
-    orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      packageId: true,
-      installedVersion: true,
-      enabled: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
-}
+import React from "react";
+import { enableAndSeedSelected, toggleInstallEnabled, getInstalls } from "./db/actions";
 
 export default async function ProfilesTab() {
   const installs = await getInstalls();

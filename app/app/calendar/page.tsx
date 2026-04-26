@@ -5,18 +5,20 @@ import CalendarSignInGate from "./SignInGate";
 import {
   listEventsByDateRangeAndFilters,
   listUpcomingUndefined,
+  hasEventsInDateRange,
+} from "../../data/calendar/calendarRepo";
+import {
   addEventComment,
   setUserSubscription,
   deleteCommentIfAllowed,
   isAdminByPrefs,
-  hasEventsInDateRange,
-} from "../data/prismaRepo";
+} from "../../data/admin/adminRepo";
 import ClientCalendar from "./ClientCalendar";
 import { mapReleaseEventsToCalendar } from "./mapEvents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import FilterBar from "./FilterBar";
-import { TypeBadge, StatusBadge } from "app/ui/Badges";
+import { TypeBadge, StatusBadge } from "../ui/Badges";
 import Tabs from "./Tabs";
 import MonthSwitcher from "./MonthSwitcher";
 import EventDrawer from "./EventDrawer";
@@ -93,17 +95,8 @@ export async function deleteCommentAction(formData: FormData) {
   redirect(back);
 }
 
-async function absUrl(path: string) {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "http";
-  if (!host) {
-    // Fallback for local dev if headers are absent
-    const base = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-    return `${base}${path}`;
-  }
-  return `${proto}://${host}${path}`;
-}
+
+import { absUrl, fmtDate } from "../lib/utils";
 
 function addDays(d: Date, n: number) {
   const x = new Date(d);
@@ -125,11 +118,6 @@ function parseCsvInput(input?: string | string[]): string[] | undefined {
   return items.length ? items : undefined;
 }
 
-function fmtDate(d?: string | Date | null): string {
-  if (!d) return "";
-  const iso = typeof d === "string" ? d : d.toISOString();
-  return new Date(iso).toISOString().slice(0, 10);
-}
 
 // Build a new /calendar URL with updated query, preserving existing keys
 function buildUrlWith(

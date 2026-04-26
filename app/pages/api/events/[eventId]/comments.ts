@@ -1,6 +1,7 @@
 // /app/pages/api/events/[eventId]/comments.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import { addEventComment, listEventComments } from "app/data/prismaRepo";
+import { addEventComment } from "data/admin/adminRepo";
+import { listEventComments } from "data/admin/adminRepo";
 import { getServerSession } from "next-auth";
 import { authOptions } from "app/auth";
 

@@ -1,10 +1,12 @@
 
 // /app/app/calendar/EventDrawer.tsx
+
 import React from 'react';
 import Link from 'next/link';
-import { getEventDetails } from 'app/data/prismaRepo';
-import { TypeBadge, StatusBadge } from 'app/ui/Badges';
+import { getReleaseEventWithSources } from '../../data/calendar/calendarRepo';
+import { TypeBadge, StatusBadge } from '../ui/Badges';
 import CommentsForEvent from './CommentsForEvent';
+import { fmtDate } from '../lib/utils';
 
 // Build a URL without "event" while preserving other query params
 function buildCloseHref(sp: Record<string, string | string[]>) {
@@ -18,12 +20,6 @@ function buildCloseHref(sp: Record<string, string | string[]>) {
   return qs ? `/calendar?${qs}` : `/calendar`;
 }
 
-function fmtDate(d?: string | Date | null): string {
-  if (!d) return '';
-  const iso = typeof d === 'string' ? d : d.toISOString();
-  return new Date(iso).toISOString().slice(0, 10);
-}
-
 export default async function EventDrawer({
   eventId,
   sp,
@@ -33,7 +29,7 @@ export default async function EventDrawer({
 }) {
   if (!eventId) return null;
 
-  const ev = await getEventDetails(eventId);
+  const ev = await getReleaseEventWithSources(eventId);
   if (!ev) {
     return (
       <div className="fixed inset-0 z-40">
@@ -100,7 +96,7 @@ export default async function EventDrawer({
               <p className="text-xs text-gray-500">No sources recorded.</p>
             ) : (
               <ul className="space-y-2 text-sm">
-                {ev.sourceClaims.map(sc => (
+                {ev.sourceClaims.map((sc: any) => (
                   <li key={sc.id} className="border rounded p-2">
                     <div className="flex items-center justify-between">
                       <div className="font-medium">{sc.tier} <span className="text-gray-500">/ {sc.disposition}</span></div>

@@ -1,7 +1,7 @@
 // /app/app/calendar/FilterBar.tsx
 import React from "react";
 import { headers } from "next/headers";
-import { absUrl } from "./absUrlHelper"; // we'll add this tiny helper below
+import { absUrl } from "./absUrlHelper";
 import { firstStr, parseCsvInput, buildUrlWith } from "./helpers"; // reuse helpers you already have or inline
 
 const ALL_TYPES = ["shelf", "prerelease", "promo", "special"] as const;

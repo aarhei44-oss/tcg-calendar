@@ -1,14 +1,14 @@
 "use server";
 
-import { prisma } from "app/lib/prisma";
-import { isAdminByPrefs } from "app/data/prismaRepo";
-import { getSession } from "app/auth";
+import { prisma } from "../../lib/prisma";
+import { isAdminByPrefs } from "../../../data/admin/adminRepo";
+import { getSession } from "../../auth";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { enableProfilesAndSeedData } from '../../data/prismaRepo';
+import { enableProfilesAndSeedData } from '../../../data/calendar/calendarRepo';
 
 export async function adminEnableProfiles(installs: string[], options?: unknown) {
   await enableProfilesAndSeedData(installs, options);
@@ -143,14 +143,29 @@ export async function deleteRow(model: string, where: any) {
   return (await delegate.delete({ where })) as any;
 }
 
+
 /** Build absolute URL for calling Pages API (bulk seed) */
-async function absUrl(path: string) {
+export async function absUrl(path: string) {
   const hs = await headers();
   const host = hs.get("x-forwarded-host") ?? hs.get("host") ?? "localhost:3000";
   const proto =
     hs.get("x-forwarded-proto") ??
     (process.env.NODE_ENV === "production" ? "https" : "http");
   return `${proto}://${host}${path}`;
+}
+
+export async function getInstalls() {
+  return prisma.tcgProfileInstall.findMany({
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      packageId: true,
+      installedVersion: true,
+      enabled: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 }
 
 export async function toggleInstallEnabled(formData: FormData) {
