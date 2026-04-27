@@ -1,9 +1,5 @@
 
 // /app/app/calendar/CommentsForEvent.tsx
-import React from 'react';
-import { getSession } from '../../app/auth';
-import { getUserById, listEventComments } from '../../data/admin/adminRepo';
-import { commentAction, deleteCommentAction } from './page'; // re-use existing actions
 
 import React from 'react';
 import { getSession } from '../auth';

@@ -7,7 +7,7 @@ dist
 out
 
 # Local SQLite data (mounted as volume in container)
-data
+#data
 
 # VCS and meta
 .git

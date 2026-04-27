@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { absUrl } from "../lib/utils";
+import { subscribeAction } from "../calendar/page";
 
 /** Installed Profiles (enabled only) with subscribe/unsubscribe buttons. */
 export default async function InstalledProfilesList({ signedIn }: { signedIn: boolean }) {

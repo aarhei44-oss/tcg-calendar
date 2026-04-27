@@ -1,9 +1,5 @@
 
 // /app/app/admin/UsersTab.tsx
-<<<<<<< HEAD
-=======
-
->>>>>>> a01b7a957253c383303783724856fd7fba47ad34
 import { adminListUsers, adminSetUserActive, adminSetUserIsAdmin } from "../../data/admin/adminRepo";
 import { redirect } from "next/navigation";
 import { fmtDate } from "../lib/utils";

@@ -3,7 +3,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { getEventDetails } from '../../data/calendar/calendarRepo';
+import { getReleaseEventWithSources } from '../../data/calendar/calendarRepo';
 import { TypeBadge, StatusBadge } from '../../app/ui/Badges';
 import CommentsForEvent from './CommentsForEvent';
 import { fmtDate } from '../lib/utils';
