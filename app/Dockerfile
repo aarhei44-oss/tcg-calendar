@@ -4,7 +4,7 @@
 ############################################
 # Stage 1: deps (install dev deps for build)
 ############################################
-FROM node:20-bookworm-slim AS deps
+FROM node:22.23.4-bookworm-slim AS deps
 WORKDIR /app
 
 ENV CI=1
@@ -16,7 +16,7 @@ RUN npm ci
 ############################################
 # Stage 2: build (Next.js production build)
 ############################################
-FROM node:20-bookworm-slim AS build
+FROM node:22.23.4-bookworm-slim AS build
 WORKDIR /app
 
 ENV CI=1
@@ -39,7 +39,7 @@ RUN npm run build
 ############################################
 # Stage 3: runner (production)
 ############################################
-FROM node:20-bookworm-slim AS runner
+FROM node:22.23.4-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
